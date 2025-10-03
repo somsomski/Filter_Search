@@ -58,6 +58,9 @@ export async function lookup(input: LookupInput): Promise<LookupOutput> {
   if (!make || !model || !year) {
     throw Object.assign(new Error('Missing fields'), { status: 400 });
   }
+  if (!pool) {
+    throw Object.assign(new Error('Database not available'), { status: 503 });
+  }
   const result = await pool.query<Row>(
     `
     SELECT make, model, year_from, year_to, engine_code, fuel, displacement_l, power_hp, body, ac,

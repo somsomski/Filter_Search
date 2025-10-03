@@ -14,6 +14,10 @@ async function main() {
     console.error('Usage: npm run import:csv -- <path-to-csv>');
     process.exit(1);
   }
+  if (!pool) {
+    console.error('DATABASE_URL not set, cannot import');
+    process.exit(1);
+  }
   const csv = fs.readFileSync(file, 'utf8');
   const rows = parseCSV(csv);
   const header = rows[0];
