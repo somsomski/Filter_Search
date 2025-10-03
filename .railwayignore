@@ -1,0 +1,12 @@
+# Development files
+scripts/
+data/
+*.md
+
+# Keep important files for production
+!src/
+!dist/
+!public/
+!package.json
+!package-lock.json
+!railway.json
