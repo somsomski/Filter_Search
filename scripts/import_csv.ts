@@ -82,7 +82,7 @@ async function main() {
       console.error('Row failed:', r.join(','), e);
     }
   }
-  await pool.query('UPDATE ingestion_batch SET log = $1 || E'\nOK: ' + ok + ', FAIL: ' + fail + '' WHERE id = $2', ['import_csv', batchId]);
+  await pool.query('UPDATE ingestion_batch SET log = $1 || E\'\nOK: \' || $3 || \', FAIL: \' || $4 WHERE id = $2', ['import_csv', batchId, ok.toString(), fail.toString()]);
   console.log(`Done. OK=${ok}, FAIL=${fail}, batchId=${batchId}`);
   process.exit(0);
 }
