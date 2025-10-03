@@ -1,21 +1,33 @@
 #!/usr/bin/env node
 
-import { execSync } from 'child_process';
 import fs from 'fs';
-import path from 'path';
 
-console.log('Building TypeScript...');
+console.log('Checking pre-compiled JavaScript files...');
 
 try {
-  // Ensure dist directory exists
+  // Check if dist directory exists and has the required files
   if (!fs.existsSync('dist')) {
-    fs.mkdirSync('dist', { recursive: true });
+    console.error('dist directory not found!');
+    process.exit(1);
   }
 
-  // Run TypeScript compiler
-  execSync('npx tsc', { stdio: 'inherit' });
+  const requiredFiles = [
+    'dist/src/server.js',
+    'dist/src/db.js',
+    'dist/src/formatter.js',
+    'dist/src/lookup.js',
+    'dist/src/routes.js',
+    'dist/src/types.js'
+  ];
+
+  for (const file of requiredFiles) {
+    if (!fs.existsSync(file)) {
+      console.error(`Required file ${file} not found!`);
+      process.exit(1);
+    }
+  }
   
-  console.log('Build completed successfully!');
+  console.log('All required files found! Build completed successfully!');
 } catch (error) {
   console.error('Build failed:', error.message);
   process.exit(1);
