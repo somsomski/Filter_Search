@@ -58,7 +58,7 @@ export async function lookup(input: LookupInput): Promise<LookupOutput> {
   if (!make || !model || !year) {
     throw Object.assign(new Error('Missing fields'), { status: 400 });
   }
-  const { rows } = await pool.query<Row>(
+  const result = await pool.query<Row>(
     `
     SELECT make, model, year_from, year_to, engine_code, fuel, displacement_l, power_hp, body, ac,
            filter_type, brand_src, part_number, catalog_year, page
@@ -69,6 +69,7 @@ export async function lookup(input: LookupInput): Promise<LookupOutput> {
     `,
     [make, model, year]
   );
+const rows = result.rows;
   if (rows.length === 0) {
     return {
       query: input,
