@@ -5,10 +5,11 @@
   "type": "module",
   "main": "dist/src/server.js",
   "scripts": {
-    "dev": "tsx src/server.ts",
-    "build": "node scripts/build.js",
+    "build": "tsc",
+    "build:check": "node scripts/build.js",
     "start": "node dist/src/server.js",
-    "import:csv": "tsx scripts/import_csv.ts ./data/sample_catalog.csv"
+    "dev": "tsx src/server.ts",
+    "import": "tsx scripts/import_csv.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",
