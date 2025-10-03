@@ -9,7 +9,7 @@
     "build:check": "node scripts/build.js",
     "start": "node dist/src/server.js",
     "dev": "tsx src/server.ts",
-    "import": "tsx scripts/import_csv.ts"
+    "import": "node dist/scripts/import_csv.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
