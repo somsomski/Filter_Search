@@ -17,7 +17,25 @@ app.get('/health', (req, res) => {
 
 // Serve index.html for root route (must come before static middleware)
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+  try {
+    const indexPath = path.join(__dirname, '..', 'public', 'index.html');
+    console.log('Serving index.html from:', indexPath);
+    res.sendFile(indexPath);
+  } catch (error) {
+    console.error('Error serving index.html:', error);
+    // Fallback response if file serving fails
+    res.send(`
+      <!doctype html>
+      <html>
+        <head><title>Filter Search Service</title></head>
+        <body>
+          <h1>Filter Search Service</h1>
+          <p>Service is running successfully!</p>
+          <p><a href="/health">Health Check</a></p>
+        </body>
+      </html>
+    `);
+  }
 });
 
 // Serve static files from public directory
