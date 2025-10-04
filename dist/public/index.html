@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Filtro Lookup (AR)</title>
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; margin: 20px; }
+    .row { display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+    input, select, button { padding:8px; font-size:16px; }
+    .card { border:1px solid #ddd; border-radius:10px; padding:12px; margin:10px 0; }
+    h2 { margin: 12px 0 6px; }
+    small { color:#666; }
+  </style>
+</head>
+<body>
+  <h1>Buscador de filtros (Argentina)</h1>
+  <div class="row">
+    <input id="make" placeholder="Marca (ej: Peugeot)" />
+    <input id="model" placeholder="Modelo (ej: 208)" />
+    <input id="year" type="number" placeholder="Año (ej: 2019)" />
+    <select id="lang">
+      <option value="es-AR" selected>es-AR</option>
+      <option value="ru">ru</option>
+    </select>
+    <button id="btn">Buscar</button>
+  </div>
+
+  <div id="ask" class="card" style="display:none"></div>
+  <div id="out"></div>
+
+  <script>
+    const $ = (s)=>document.querySelector(s);
+    const api = (path)=>path;
+    async function run() {
+      const make = $('#make').value.trim();
+      const model = $('#model').value.trim();
+      const year = Number($('#year').value);
+      const lang = $('#lang').value;
+      const resp = await fetch(api('/api/lookup'), {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ make, model, year, lang })
+      });
+      const data = await resp.json();
+      const ask = document.getElementById('ask');
+      ask.style.display = 'none';
+      ask.innerHTML = '';
+      if (data.disambiguation?.needed) {
+        ask.style.display = 'block';
+        const q = data.disambiguation.ask?.[0];
+        const txt = (lang==='ru')
+          ? (data.disambiguation.fallback_texts?.['ru'] || 'Нужен уточняющий пункт')
+          : (data.disambiguation.fallback_texts?.['es-AR'] || 'Falta un dato');
+        ask.innerHTML = `<b>⚠️ ${txt}</b><br/><small>${q?.reason || ''}</small>`;
+      }
+      const out = document.getElementById('out');
+      out.innerHTML = '';
+      function section(title, items) {
+        if (!items || !items.length) return;
+        const div = document.createElement('div'); div.className='card';
+        div.innerHTML = `<h2>${title}</h2>` + items.map(it => {
+          const srcs = (it.sources||[]).map(s=>`${s.catalog} p.${s.page}`).join(', ');
+          return `<div><b>${it.brand} ${it.part_number}</b> — conf ${Math.round(it.confidence*100)}%<br/><small>${srcs}</small></div>`;
+        }).join('');
+        out.appendChild(div);
+      }
+      section('Aceite / Масляный', data.results?.oil);
+      section('Aire / Воздушный', data.results?.air);
+      section('Cabina / Салонный', data.results?.cabin);
+      section('Combustible / Топливный', data.results?.fuel);
+    }
+    document.getElementById('btn').addEventListener('click', run);
+  </script>
+</body>
+</html>
