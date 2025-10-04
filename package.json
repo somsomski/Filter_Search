@@ -5,7 +5,8 @@
   "type": "module",
   "main": "dist/src/server.js",
   "scripts": {
-    "build": "tsc && node scripts/build.js",
+    "preinstall": "npm config set cache /tmp/.npm && npm config set fund false",
+    "build": "npx tsc && node scripts/build.js",
     "build:check": "node scripts/build.js",
     "start": "node dist/src/server.js",
     "dev": "tsx src/server.ts",
@@ -15,12 +16,12 @@
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "pg": "^8.12.0",
-    "typescript": "^5.6.3",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/node": "^22.5.5",
     "@types/pg": "^8.15.5"
   },
   "devDependencies": {
+    "typescript": "^5.6.3"
   }
 }
