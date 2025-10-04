@@ -13,6 +13,20 @@
 - Импортируй свои CSV: `npm run import:csv`
 - Эндпоинт: `POST /api/lookup` — см. src/types.ts (LookupInput/Output)
 
+## Импорт CSV на Windows
+
+### Для cmd.exe:
+```cmd
+set DATABASE_URL=postgres://USER:PASSWORD@HOST:5432/DBNAME
+npm run import ./data/sample_catalog.csv
+```
+
+### Для PowerShell:
+```powershell
+$env:DATABASE_URL="postgres://USER:PASSWORD@HOST:5432/DBNAME"
+npm run import ./data/sample_catalog.csv
+```
+
 ## LookupInput (JSON)
 ```json
 {
