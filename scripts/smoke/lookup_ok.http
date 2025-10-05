@@ -1,0 +1,29 @@
+# Smoke test: Successful lookup request
+# Expected: 200 OK with JSON response containing 4 filter sections
+
+POST http://localhost:8080/api/lookup
+Content-Type: application/json
+
+{
+  "make": "Peugeot",
+  "model": "208",
+  "year": 2019,
+  "hints": {
+    "fuel": "nafta",
+    "ac": true,
+    "displacement_l": 1.6
+  },
+  "lang": "es-AR"
+}
+
+###
+
+# Alternative test with minimal payload
+POST http://localhost:8080/api/lookup
+Content-Type: application/json
+
+{
+  "make": "Peugeot",
+  "model": "208",
+  "year": 2019
+}

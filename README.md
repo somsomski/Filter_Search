@@ -95,6 +95,39 @@ npm run dev
 - `data/` — примеры CSV файлов
 - `schema.sql` — схема базы данных
 
+## Smoke Tests
+
+Быстрые тесты для проверки основной функциональности API.
+
+### Успешный запрос
+```bash
+curl -X POST http://localhost:8080/api/lookup \
+  -H "Content-Type: application/json" \
+  -d '{"make": "Peugeot", "model": "208", "year": 2019}' \
+  -w "HTTP Status: %{http_code}"
+```
+**Ожидаемый результат:** HTTP 200 с JSON ответом
+
+### Некорректный запрос
+```bash
+curl -X POST http://localhost:8080/api/lookup \
+  -H "Content-Type: application/json" \
+  -d '{"make": "", "model": "208", "year": 2019}' \
+  -w "HTTP Status: %{http_code}"
+```
+**Ожидаемый результат:** HTTP 400 с сообщением об ошибке
+
+### Автоматические тесты
+```bash
+# Запуск всех тестов
+./scripts/smoke/lookup_ok.sh    # Тесты успешных запросов
+./scripts/smoke/lookup_bad.sh   # Тесты некорректных запросов
+
+# Или используйте HTTP файлы в IDE (VS Code с REST Client)
+scripts/smoke/lookup_ok.http
+scripts/smoke/lookup_bad.http
+```
+
 ## Документация
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — архитектура системы
