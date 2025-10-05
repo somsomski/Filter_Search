@@ -1,0 +1,118 @@
+name: MVP Guardrails
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+
+jobs:
+  guardrails:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: TypeScript compilation check
+      run: npx tsc --noEmit
+      
+    - name: Check for new API routes
+      run: |
+        echo "Checking for unauthorized API routes..."
+        
+        # Find all app.(get|post|put|delete) calls in src/
+        NEW_ROUTES=$(grep -r "app\.\(get\|post\|put\|delete\)" src/ || true)
+        
+        if [ -n "$NEW_ROUTES" ]; then
+          echo "❌ Out of MVP scope: new API route detected"
+          echo "Found routes:"
+          echo "$NEW_ROUTES"
+          echo ""
+          echo "MVP allows only:"
+          echo "- POST /api/lookup"
+          echo "- GET /health"
+          echo "- GET / (serves index.html)"
+          echo ""
+          echo "If you need new routes, please:"
+          echo "1. Update DECISIONS.md with ADR"
+          echo "2. Create separate PR with justification"
+          echo "3. Update SCOPE.md if changing MVP boundaries"
+          exit 1
+        fi
+        
+        # Check for new dependencies in package.json
+        echo "Checking for new dependencies..."
+        CURRENT_DEPS=$(grep -E '^\s*"[^"]+":\s*"[^"]+"' package.json | grep -v '"name"\|"version"\|"private"\|"type"\|"main"\|"scripts"' | wc -l)
+        echo "Current dependencies count: $CURRENT_DEPS"
+        
+        # Allow only specific dependencies
+        ALLOWED_DEPS="cors express pg @types/cors @types/express @types/node @types/pg typescript"
+        for dep in $ALLOWED_DEPS; do
+          if ! grep -q "\"$dep\"" package.json; then
+            echo "❌ Missing expected dependency: $dep"
+            exit 1
+          fi
+        done
+        
+        echo "✅ All guardrails passed"
+        
+    - name: Check routes.ts for unauthorized endpoints
+      run: |
+        echo "Checking routes.ts for unauthorized endpoints..."
+        
+        # Check for any routes other than /api/lookup and /health
+        UNAUTHORIZED_ROUTES=$(grep -E "router\.(get|post|put|delete)" src/routes.ts | grep -v "/api/lookup" | grep -v "/health" || true)
+        
+        if [ -n "$UNAUTHORIZED_ROUTES" ]; then
+          echo "❌ Out of MVP scope: unauthorized route detected in routes.ts"
+          echo "Found routes:"
+          echo "$UNAUTHORIZED_ROUTES"
+          exit 1
+        fi
+        
+        echo "✅ routes.ts guardrails passed"
+        
+    - name: Check for new dependencies
+      run: |
+        echo "Checking for new dependencies..."
+        
+        # Extract dependencies from package.json
+        DEPS=$(node -p "Object.keys(require('./package.json').dependencies || {}).join(' ')" 2>/dev/null || echo "")
+        DEV_DEPS=$(node -p "Object.keys(require('./package.json').devDependencies || {}).join(' ')" 2>/dev/null || echo "")
+        
+        ALLOWED_PROD_DEPS="cors express pg @types/cors @types/express @types/node @types/pg"
+        ALLOWED_DEV_DEPS="typescript"
+        
+        echo "Production dependencies: $DEPS"
+        echo "Dev dependencies: $DEV_DEPS"
+        
+        # Check for unexpected dependencies
+        for dep in $DEPS; do
+          if ! echo "$ALLOWED_PROD_DEPS" | grep -q "$dep"; then
+            echo "❌ Unexpected production dependency: $dep"
+            echo "Allowed: $ALLOWED_PROD_DEPS"
+            exit 1
+          fi
+        done
+        
+        for dep in $DEV_DEPS; do
+          if ! echo "$ALLOWED_DEV_DEPS" | grep -q "$dep"; then
+            echo "❌ Unexpected dev dependency: $dep"
+            echo "Allowed: $ALLOWED_DEV_DEPS"
+            exit 1
+          fi
+        done
+        
+        echo "✅ Dependencies guardrails passed"
