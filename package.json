@@ -9,7 +9,7 @@
     "build": "npx tsc && node scripts/build.js",
     "build:check": "node scripts/build.js",
     "start": "node dist/src/server.js",
-    "dev": "tsx src/server.ts",
+    "dev": "node --loader tsx src/server.ts",
     "import": "node dist/scripts/import_csv.js"
   },
   "dependencies": {

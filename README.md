@@ -21,7 +21,7 @@ export DATABASE_URL="postgres://user:password@localhost:5432/filter_search"
 npm run import ./data/sample_catalog.csv
 
 # 5. Запуск сервера
-npm run dev
+npm run build && npm start
 # Открой http://localhost:8080
 ```
 

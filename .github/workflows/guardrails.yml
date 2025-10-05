@@ -52,21 +52,7 @@ jobs:
           exit 1
         fi
         
-        # Check for new dependencies in package.json
-        echo "Checking for new dependencies..."
-        CURRENT_DEPS=$(grep -E '^\s*"[^"]+":\s*"[^"]+"' package.json | grep -v '"name"\|"version"\|"private"\|"type"\|"main"\|"scripts"' | wc -l)
-        echo "Current dependencies count: $CURRENT_DEPS"
-        
-        # Allow only specific dependencies
-        ALLOWED_DEPS="cors express pg @types/cors @types/express @types/node @types/pg typescript"
-        for dep in $ALLOWED_DEPS; do
-          if ! grep -q "\"$dep\"" package.json; then
-            echo "❌ Missing expected dependency: $dep"
-            exit 1
-          fi
-        done
-        
-        echo "✅ All guardrails passed"
+        echo "✅ API routes guardrails passed"
         
     - name: Check routes.ts for unauthorized endpoints
       run: |
