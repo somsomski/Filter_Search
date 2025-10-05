@@ -95,27 +95,57 @@ npm run build && npm start
 - `data/` — примеры CSV файлов
 - `schema.sql` — схема базы данных
 
-## Smoke Tests
+## Smoke Tests / Postman
 
-Быстрые тесты для проверки основной функциональности API.
+Рекомендуемая последовательность тестирования для проверки основной функциональности:
 
-### Успешный запрос
+### 1. Health Check
+```bash
+curl http://localhost:8080/health
+```
+**Ожидаемый результат:** HTTP 200 с `{"status":"ok","timestamp":"...","db":"ok"}`
+
+### 2. Peugeot 208 без hints (дизамбигуация по fuel)
 ```bash
 curl -X POST http://localhost:8080/api/lookup \
   -H "Content-Type: application/json" \
-  -d '{"make": "Peugeot", "model": "208", "year": 2019}' \
-  -w "HTTP Status: %{http_code}"
+  -d '{"make": "Peugeot", "model": "208", "year": 2019}'
 ```
-**Ожидаемый результат:** HTTP 200 с JSON ответом
+**Ожидаемый результат:** HTTP 200, `disambiguation.needed=true`, вопрос по `fuel`
 
-### Некорректный запрос
+### 3. Peugeot 208 с fuel=nafta (дизамбигуация по displacement_l)
 ```bash
 curl -X POST http://localhost:8080/api/lookup \
   -H "Content-Type: application/json" \
-  -d '{"make": "", "model": "208", "year": 2019}' \
-  -w "HTTP Status: %{http_code}"
+  -d '{"make": "Peugeot", "model": "208", "year": 2019, "hints": {"fuel": "nafta"}}'
 ```
-**Ожидаемый результат:** HTTP 400 с сообщением об ошибке
+**Ожидаемый результат:** HTTP 200, вопрос по `displacement_l` (если есть варианты)
+
+### 4. Peugeot 208 с fuel=diesel (дизамбигуация по displacement_l)
+```bash
+curl -X POST http://localhost:8080/api/lookup \
+  -H "Content-Type: application/json" \
+  -d '{"make": "Peugeot", "model": "208", "year": 2019, "hints": {"fuel": "diesel"}}'
+```
+**Ожидаемый результат:** HTTP 200, вопрос по `displacement_l`, некоторые секции могут быть пустыми
+
+### 5. Journey 2013 (тест с реальными данными)
+```bash
+curl -X POST http://localhost:8080/api/lookup \
+  -H "Content-Type: application/json" \
+  -d '{"make": "Dodge", "model": "Journey", "year": 2013}'
+```
+**Ожидаемый результат:** HTTP 200 с результатами или дизамбигуацией
+
+### Ожидаемое поведение
+
+| Тест | results.keys | disambiguation | Примечание |
+|------|-------------|----------------|------------|
+| Health | - | - | Проверка доступности сервиса и БД |
+| 208 без hints | oil,air,cabin,fuel | fuel вопрос | Пошаговая дизамбигуация |
+| 208 + fuel=nafta | oil,air,cabin,fuel | displacement_l вопрос | Следующий шаг дизамбигуации |
+| 208 + fuel=diesel | oil,air,cabin,fuel | displacement_l вопрос | Некоторые секции могут быть [] |
+| Journey 2013 | oil,air,cabin,fuel | зависит от данных | Реальный кейс |
 
 ### Автоматические тесты
 ```bash

@@ -4,13 +4,39 @@ import routes from './routes.js';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { pool } from './db.js';
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Add healthcheck endpoint
-app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/health', async (req, res) => {
+    try {
+        let dbStatus = 'down';
+        if (pool) {
+            try {
+                await pool.query('SELECT 1');
+                dbStatus = 'ok';
+            }
+            catch (error) {
+                console.error('DB health check failed:', error);
+                dbStatus = 'down';
+            }
+        }
+        res.status(200).json({
+            status: 'ok',
+            timestamp: new Date().toISOString(),
+            db: dbStatus
+        });
+    }
+    catch (error) {
+        console.error('Health check error:', error);
+        res.status(500).json({
+            status: 'error',
+            timestamp: new Date().toISOString(),
+            db: 'down'
+        });
+    }
 });
 // Serve index.html for root route (must come before static middleware)
 app.get('/', (req, res) => {

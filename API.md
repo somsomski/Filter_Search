@@ -40,7 +40,7 @@
 
 #### Ответ
 
-**Важно**: Ответ всегда содержит объект `results` с четырьмя ключами: `oil`, `air`, `cabin`, `fuel`. Если по какой-либо секции нет позиций, возвращается пустой массив `[]`.
+**Инвариант**: Объект `results` ВСЕГДА содержит четыре ключа: `oil`, `air`, `cabin`, `fuel`. Если по какой-либо секции нет позиций, возвращается пустой массив `[]`. Это гарантирует единообразную структуру ответа независимо от наличия данных.
 
 **HTTP 200 OK**
 ```json
@@ -224,6 +224,113 @@
   "notices": [
     "Resultados basados en catálogos importados. Verificá combustible/AC si hay duda."
   ]
+}
+```
+
+#### Примеры дизамбигуации
+
+**Пример A: Неоднозначность по fuel**
+```json
+{
+  "make": "Peugeot",
+  "model": "208",
+  "year": 2019
+}
+```
+Ответ содержит вопрос только по fuel:
+```json
+{
+  "disambiguation": {
+    "needed": true,
+    "ask": [
+      {
+        "field": "fuel",
+        "options": ["nafta", "diesel"],
+        "reason": "Hay variantes por combustible."
+      }
+    ]
+  }
+}
+```
+
+**Пример B: fuel=nafta → вопрос по displacement_l**
+```json
+{
+  "make": "Peugeot",
+  "model": "208",
+  "year": 2019,
+  "hints": {
+    "fuel": "nafta"
+  }
+}
+```
+Ответ содержит вопрос только по displacement_l:
+```json
+{
+  "disambiguation": {
+    "needed": true,
+    "ask": [
+      {
+        "field": "displacement_l",
+        "options": [1.2, 1.6],
+        "reason": "Hay variantes por cilindrada."
+      }
+    ]
+  }
+}
+```
+
+**Пример C: fuel=diesel → вопрос по displacement_l с пустыми секциями**
+```json
+{
+  "make": "Peugeot",
+  "model": "208",
+  "year": 2019,
+  "hints": {
+    "fuel": "diesel"
+  }
+}
+```
+Ответ содержит все 4 ключа, некоторые пустые:
+```json
+{
+  "results": {
+    "oil": [{"brand": "MANN", "part_number": "W712/95", ...}],
+    "air": [],
+    "cabin": [],
+    "fuel": [{"brand": "FRAM", "part_number": "WK820/7", ...}]
+  },
+  "disambiguation": {
+    "needed": true,
+    "ask": [
+      {
+        "field": "displacement_l",
+        "options": [1.5, 1.6],
+        "reason": "Hay variantes por cilindrada."
+      }
+    ]
+  }
+}
+```
+
+#### Примеры ошибок валидации
+
+**HTTP 400 Bad Request**
+```json
+{
+  "error": "make is required and must be a non-empty string"
+}
+```
+
+```json
+{
+  "error": "model is required and must be a non-empty string"
+}
+```
+
+```json
+{
+  "error": "year is required and must be a number between 1900 and 2030"
 }
 ```
 

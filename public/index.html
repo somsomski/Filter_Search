@@ -32,30 +32,55 @@
   <script>
     const $ = (s)=>document.querySelector(s);
     const api = (path)=>path;
-    async function run() {
+    
+    let currentQuery = {};
+    
+    async function run(hints = {}) {
       const make = $('#make').value.trim();
       const model = $('#model').value.trim();
       const year = Number($('#year').value);
       const lang = $('#lang').value;
+      
+      currentQuery = { make, model, year, lang, hints };
+      
       const resp = await fetch(api('/api/lookup'), {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ make, model, year, lang })
+        body: JSON.stringify(currentQuery)
       });
       const data = await resp.json();
+      
       const ask = document.getElementById('ask');
       ask.style.display = 'none';
       ask.innerHTML = '';
+      
       if (data.disambiguation?.needed) {
         ask.style.display = 'block';
         const q = data.disambiguation.ask?.[0];
         const txt = (lang==='ru')
           ? (data.disambiguation.fallback_texts?.['ru'] || 'Нужен уточняющий пункт')
           : (data.disambiguation.fallback_texts?.['es-AR'] || 'Falta un dato');
-        ask.innerHTML = `<b>⚠️ ${txt}</b><br/><small>${q?.reason || ''}</small>`;
+        
+        let askHTML = `<b>⚠️ ${txt}</b><br/><small>${q?.reason || ''}</small><br/>`;
+        
+        if (q?.field === 'fuel') {
+          askHTML += '<div style="margin-top:10px;">';
+          askHTML += '<button onclick="answerFuel(\'nafta\')" style="margin-right:8px;">Nafta</button>';
+          askHTML += '<button onclick="answerFuel(\'diesel\')">Diesel</button>';
+          askHTML += '</div>';
+        } else if (q?.field === 'displacement_l') {
+          askHTML += '<div style="margin-top:10px;">';
+          askHTML += '<input id="displacementInput" type="number" step="0.1" placeholder="ej: 1.6" style="margin-right:8px;"/>';
+          askHTML += '<button onclick="answerDisplacement()">Confirmar</button>';
+          askHTML += '</div>';
+        }
+        
+        ask.innerHTML = askHTML;
       }
+      
       const out = document.getElementById('out');
       out.innerHTML = '';
+      
       function section(title, items) {
         if (!items || !items.length) return;
         const div = document.createElement('div'); div.className='card';
@@ -65,12 +90,32 @@
         }).join('');
         out.appendChild(div);
       }
+      
       section('Aceite / Масляный', data.results?.oil);
       section('Aire / Воздушный', data.results?.air);
       section('Cabina / Салонный', data.results?.cabin);
       section('Combustible / Топливный', data.results?.fuel);
+      
+      // Автоскролл к результатам после ответа на дизамбигуацию
+      if (hints && Object.keys(hints).length > 0) {
+        setTimeout(() => {
+          document.getElementById('out').scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      }
     }
-    document.getElementById('btn').addEventListener('click', run);
+    
+    function answerFuel(fuel) {
+      run({ ...currentQuery.hints, fuel });
+    }
+    
+    function answerDisplacement() {
+      const displacement = Number($('#displacementInput').value);
+      if (displacement && displacement > 0) {
+        run({ ...currentQuery.hints, displacement_l: displacement });
+      }
+    }
+    
+    document.getElementById('btn').addEventListener('click', () => run());
   </script>
 </body>
 </html>
