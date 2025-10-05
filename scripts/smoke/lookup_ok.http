@@ -43,7 +43,7 @@ Content-Type: application/json
 
 ###
 
-# Test case for stepwise disambiguation with fuel hint (should ask about AC next)
+# Test case for smart disambiguation - displacement_l should NOT be asked if it doesn't affect results
 POST http://localhost:8080/api/lookup
 Content-Type: application/json
 
@@ -55,3 +55,5 @@ Content-Type: application/json
     "fuel": "nafta"
   }
 }
+
+###

@@ -30,31 +30,64 @@ function score(row, hints, ctx) {
 }
 function inferDisambiguation(rows, hints) {
     const ask = [];
-    const fuels = new Set(rows.map(r => r.fuel).filter(Boolean));
-    const acs = new Set(rows.map(r => String(r.ac)).filter(v => v !== 'null'));
-    const dispValues = [];
-    for (const r of rows) {
-        const n = toNumberOrNull(r.displacement_l);
-        if (n != null)
-            dispValues.push(n);
-    }
-    const disps = new Set(dispValues);
+    // Применяем текущие hints для получения candidate set
+    const filtered = rows.filter(r => {
+        if (hints?.fuel && r.fuel && r.fuel !== hints.fuel)
+            return false;
+        if (typeof hints?.ac === 'boolean' && typeof r.ac === 'boolean' && r.ac !== hints.ac)
+            return false;
+        const hintDisp = toNumberOrNull(hints?.displacement_l);
+        const rowDisp = toNumberOrNull(r.displacement_l);
+        if (hintDisp != null && rowDisp != null && Math.abs(rowDisp - hintDisp) > 0.1)
+            return false;
+        return true;
+    });
+    const fuels = new Set(filtered.map(r => r.fuel).filter(Boolean));
+    const acs = new Set(filtered.map(r => String(r.ac)).filter(v => v !== 'null'));
     // Пошаговая дизамбигуация: один вопрос за раз по приоритету
-    // 1) fuel, 2) ac, 3) displacement_l
+    // 1) fuel, 2) ac, 3) displacement_l (только если влияет на результат)
     if (!hints?.fuel && fuels.size > 1) {
         ask.push({ field: 'fuel', options: ['nafta', 'diesel'], reason: 'Hay variantes por combustible.' });
     }
     else if (hints?.fuel && !hints.ac && acs.size > 1) {
         ask.push({ field: 'ac', options: [true, false], reason: 'Hay variantes con/sin aire acondicionado.' });
     }
-    else if (!hints?.displacement_l && disps.size > 1) {
-        const roundedUnique = new Set(Array.from(disps)
+    else if (!hints?.displacement_l && doesDisplacementAffectResult(filtered)) {
+        const dispValues = [];
+        for (const r of filtered) {
+            const n = toNumberOrNull(r.displacement_l);
+            if (n != null)
+                dispValues.push(n);
+        }
+        const roundedUnique = new Set(Array.from(new Set(dispValues))
             .map(x => Math.round(x * 10) / 10)
             .filter(x => Number.isFinite(x)));
         const opts = Array.from(roundedUnique).sort((a, b) => a - b);
         ask.push({ field: 'displacement_l', options: opts, reason: 'Hay variantes por cilindrada.' });
     }
     return ask;
+}
+function doesDisplacementAffectResult(rows) {
+    // Группируем записи по (filter_type, brand_src, part_number)
+    const groups = new Map();
+    for (const r of rows) {
+        const disp = toNumberOrNull(r.displacement_l);
+        if (disp == null)
+            continue; // Исключаем NULL значения
+        const key = `${r.filter_type}::${r.brand_src}::${r.part_number}`;
+        if (!groups.has(key)) {
+            groups.set(key, new Set());
+        }
+        groups.get(key).add(Math.round(disp * 10) / 10); // Округляем до 0.1
+    }
+    // Проверяем, есть ли группы с разными значениями displacement_l
+    // Это означает, что displacement_l влияет на результат
+    for (const [key, displacements] of groups) {
+        if (displacements.size > 1) {
+            return true; // displacement_l влияет на результат
+        }
+    }
+    return false; // displacement_l не влияет на результат
 }
 export async function lookup(input) {
     const { make, model, year } = input;
