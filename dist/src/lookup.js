@@ -39,13 +39,15 @@ function inferDisambiguation(rows, hints) {
             dispValues.push(n);
     }
     const disps = new Set(dispValues);
+    // Пошаговая дизамбигуация: один вопрос за раз по приоритету
+    // 1) fuel, 2) ac, 3) displacement_l
     if (!hints?.fuel && fuels.size > 1) {
         ask.push({ field: 'fuel', options: ['nafta', 'diesel'], reason: 'Hay variantes por combustible.' });
     }
-    if (hints?.fuel && !hints.ac && acs.size > 1) {
+    else if (hints?.fuel && !hints.ac && acs.size > 1) {
         ask.push({ field: 'ac', options: [true, false], reason: 'Hay variantes con/sin aire acondicionado.' });
     }
-    if (!hints?.displacement_l && disps.size > 1) {
+    else if (!hints?.displacement_l && disps.size > 1) {
         const roundedUnique = new Set(Array.from(disps)
             .map(x => Math.round(x * 10) / 10)
             .filter(x => Number.isFinite(x)));
@@ -75,7 +77,12 @@ export async function lookup(input) {
     if (rows.length === 0) {
         return {
             query: input,
-            results: {},
+            results: {
+                oil: [],
+                air: [],
+                cabin: [],
+                fuel: []
+            },
             disambiguation: { needed: false, ask: [] },
             notices: ['No hay registros en los catálogos para esta combinación.']
         };
@@ -131,14 +138,18 @@ export async function lookup(input) {
             }
         }
     }
-    const results = {};
+    const results = {
+        oil: [],
+        air: [],
+        cabin: [],
+        fuel: []
+    };
     for (const ft of ['oil', 'air', 'cabin', 'fuel']) {
         const list = Array.from(byType.get(ft).values()).sort((a, b) => b.confidence - a.confidence);
         if (list.length === 1) {
             list[0].confidence = Math.max(list[0].confidence, 0.95);
         }
-        if (list.length > 0)
-            results[ft] = list;
+        results[ft] = list;
     }
     return {
         query: input,

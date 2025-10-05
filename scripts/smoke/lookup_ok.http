@@ -1,5 +1,6 @@
 # Smoke test: Successful lookup request
-# Expected: 200 OK with JSON response containing 4 filter sections
+# Expected: 200 OK with JSON response containing all 4 filter sections (oil, air, cabin, fuel)
+# Even if some sections are empty arrays, all 4 keys must be present
 
 POST http://localhost:8080/api/lookup
 Content-Type: application/json
@@ -26,4 +27,31 @@ Content-Type: application/json
   "make": "Peugeot",
   "model": "208",
   "year": 2019
+}
+
+###
+
+# Test case for stepwise disambiguation (should ask only one question at a time)
+POST http://localhost:8080/api/lookup
+Content-Type: application/json
+
+{
+  "make": "Peugeot",
+  "model": "208",
+  "year": 2019
+}
+
+###
+
+# Test case for stepwise disambiguation with fuel hint (should ask about AC next)
+POST http://localhost:8080/api/lookup
+Content-Type: application/json
+
+{
+  "make": "Peugeot",
+  "model": "208",
+  "year": 2019,
+  "hints": {
+    "fuel": "nafta"
+  }
 }

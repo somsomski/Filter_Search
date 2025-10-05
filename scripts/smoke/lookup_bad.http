@@ -1,5 +1,5 @@
 # Smoke test: Invalid lookup requests
-# Expected: 400 Bad Request with error messages
+# Expected: 400 Bad Request with specific error messages
 
 # Test 1: Empty make
 POST http://localhost:8080/api/lookup
@@ -36,7 +36,7 @@ Content-Type: application/json
 
 ###
 
-# Test 4: Year out of range
+# Test 4: Year out of range (too low)
 POST http://localhost:8080/api/lookup
 Content-Type: application/json
 
@@ -48,11 +48,46 @@ Content-Type: application/json
 
 ###
 
-# Test 5: Missing year
+# Test 5: Year out of range (too high)
+POST http://localhost:8080/api/lookup
+Content-Type: application/json
+
+{
+  "make": "Peugeot",
+  "model": "208",
+  "year": 2050
+}
+
+###
+
+# Test 6: Missing year
 POST http://localhost:8080/api/lookup
 Content-Type: application/json
 
 {
   "make": "Peugeot",
   "model": "208"
+}
+
+###
+
+# Test 7: Missing make
+POST http://localhost:8080/api/lookup
+Content-Type: application/json
+
+{
+  "model": "208",
+  "year": 2019
+}
+
+###
+
+# Test 8: Invalid make type (number)
+POST http://localhost:8080/api/lookup
+Content-Type: application/json
+
+{
+  "make": 123,
+  "model": "208",
+  "year": 2019
 }

@@ -31,7 +31,7 @@ export interface DisambQuestion {
 
 export interface LookupOutput {
   query: LookupInput;
-  results: Partial<Record<FilterType, PartHit[]>>;
+  results: Record<FilterType, PartHit[]>;
   disambiguation: {
     needed: boolean;
     ask: DisambQuestion[];
