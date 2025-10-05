@@ -51,6 +51,12 @@ app.use(express.static(path.join(__dirname, '..', 'public'), {
 
 app.use(routes);
 
+// Centralized error handler
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
 const PORT = Number(process.env.PORT ?? 8080);
 const HOST = process.env.HOST ?? '0.0.0.0';
 

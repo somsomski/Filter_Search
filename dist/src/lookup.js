@@ -1,26 +1,44 @@
 import { pool } from './db.js';
 const FILTERS = ['oil', 'air', 'cabin', 'fuel'];
-function score(row, hints) {
-    let s = 0;
-    if (hints?.fuel && row.fuel && hints.fuel === row.fuel)
-        s += 0.5;
-    if (typeof hints?.ac === 'boolean' && typeof row.ac === 'boolean' && hints.ac === row.ac)
-        s += 0.3;
-    if (hints?.displacement_l && row.displacement_l && Math.abs(row.displacement_l - hints.displacement_l) < 0.05) {
-        s += 0.3;
-    }
-    else if (row.engine_code && hints?.displacement_l == null) {
-        s += 0.1;
-    }
-    if (row.body)
-        s += 0.05;
-    return Math.min(1, Math.max(0, s));
+function toNumberOrNull(value) {
+    if (value == null)
+        return null;
+    if (typeof value === 'number')
+        return Number.isFinite(value) ? value : null;
+    const n = parseFloat(String(value).replace(',', '.'));
+    return Number.isFinite(n) ? n : null;
+}
+function score(row, hints, ctx) {
+    const rowDisp = toNumberOrNull(row.displacement_l);
+    const hintDisp = toNumberOrNull(hints?.displacement_l);
+    let s = 0.40; // base
+    const fuelMatched = !!(hints?.fuel && row.fuel && hints.fuel === row.fuel);
+    if (fuelMatched || ctx.fuelUnique)
+        s += 0.35;
+    const acHintIsBool = typeof hints?.ac === 'boolean';
+    const acMatched = acHintIsBool && typeof row.ac === 'boolean' && hints.ac === row.ac;
+    if (acMatched || ctx.acUnique)
+        s += 0.25;
+    const dispMatched = hintDisp != null && rowDisp != null && Math.abs(rowDisp - hintDisp) <= 0.1;
+    if (dispMatched || ctx.displacementUnique)
+        s += 0.25;
+    if (row.engine_code)
+        s += 0.10;
+    // final clamp
+    const clamped = Math.min(Math.max(s, 0.50), 0.99);
+    return clamped;
 }
 function inferDisambiguation(rows, hints) {
     const ask = [];
     const fuels = new Set(rows.map(r => r.fuel).filter(Boolean));
     const acs = new Set(rows.map(r => String(r.ac)).filter(v => v !== 'null'));
-    const disps = new Set(rows.map(r => r.displacement_l).filter(Boolean));
+    const dispValues = [];
+    for (const r of rows) {
+        const n = toNumberOrNull(r.displacement_l);
+        if (n != null)
+            dispValues.push(n);
+    }
+    const disps = new Set(dispValues);
     if (!hints?.fuel && fuels.size > 1) {
         ask.push({ field: 'fuel', options: ['nafta', 'diesel'], reason: 'Hay variantes por combustible.' });
     }
@@ -28,7 +46,10 @@ function inferDisambiguation(rows, hints) {
         ask.push({ field: 'ac', options: [true, false], reason: 'Hay variantes con/sin aire acondicionado.' });
     }
     if (!hints?.displacement_l && disps.size > 1) {
-        const opts = Array.from(disps).sort().map(x => Number(x.toFixed(1)));
+        const roundedUnique = new Set(Array.from(disps)
+            .map(x => Math.round(x * 10) / 10)
+            .filter(x => Number.isFinite(x)));
+        const opts = Array.from(roundedUnique).sort((a, b) => a - b);
         ask.push({ field: 'displacement_l', options: opts, reason: 'Hay variantes por cilindrada.' });
     }
     return ask;
@@ -66,16 +87,30 @@ export async function lookup(input) {
             return false;
         if (typeof hints.ac === 'boolean' && typeof r.ac === 'boolean' && r.ac !== hints.ac)
             return false;
-        if (hints.displacement_l && r.displacement_l && Math.abs(r.displacement_l - hints.displacement_l) >= 0.05)
+        const hintDisp = toNumberOrNull(hints.displacement_l);
+        const rowDisp = toNumberOrNull(r.displacement_l);
+        if (hintDisp != null && rowDisp != null && Math.abs(rowDisp - hintDisp) > 0.1)
             return false;
         return true;
     });
     const working = filtered.length > 0 ? filtered : rows;
+    // uniqueness context for scoring
+    const fuelSet = new Set(working.map(r => r.fuel).filter(Boolean));
+    const acSet = new Set(working.map(r => String(r.ac)).filter(v => v !== 'null'));
+    const dispSet = new Set(working
+        .map(r => toNumberOrNull(r.displacement_l))
+        .filter((v) => v != null)
+        .map(v => Math.round(v * 10) / 10));
+    const ctx = {
+        fuelUnique: fuelSet.size === 1,
+        acUnique: acSet.size === 1,
+        displacementUnique: dispSet.size === 1,
+    };
     const byType = new Map();
     for (const ft of ['oil', 'air', 'cabin', 'fuel'])
         byType.set(ft, new Map());
     for (const r of working) {
-        const conf = score(r, hints);
+        const conf = score(r, hints, ctx);
         const key = `${r.brand_src}::${r.part_number}`;
         const bucket = byType.get(r.filter_type);
         if (!bucket.has(key)) {
@@ -99,6 +134,9 @@ export async function lookup(input) {
     const results = {};
     for (const ft of ['oil', 'air', 'cabin', 'fuel']) {
         const list = Array.from(byType.get(ft).values()).sort((a, b) => b.confidence - a.confidence);
+        if (list.length === 1) {
+            list[0].confidence = Math.max(list[0].confidence, 0.95);
+        }
         if (list.length > 0)
             results[ft] = list;
     }

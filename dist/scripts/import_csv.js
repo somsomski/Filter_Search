@@ -66,9 +66,6 @@ async function main() {
                 vals.filter_type, vals.brand_src, vals.part_number, vals.catalog_year, vals.page,
                 vals.notes, batchId
             ]);
-            await pool.query(`INSERT INTO part (brand, part_number, filter_type)
-         VALUES ($1,$2,$3)
-         ON CONFLICT (brand, part_number, filter_type) DO NOTHING`, [vals.brand_src, vals.part_number, vals.filter_type]);
             ok++;
         }
         catch (e) {
@@ -77,7 +74,10 @@ async function main() {
         }
     }
     await pool.query('UPDATE ingestion_batch SET log = $1 || E\'\nOK: \' || $3 || \', FAIL: \' || $4 WHERE id = $2', ['import_csv', batchId, ok.toString(), fail.toString()]);
-    console.log(`Done. OK=${ok}, FAIL=${fail}, batchId=${batchId}`);
+    console.log(`Import completed successfully.`);
+    console.log(`Records inserted: ${ok}`);
+    console.log(`Records failed: ${fail}`);
+    console.log(`Batch ID: ${batchId}`);
     process.exit(0);
 }
 main().catch(e => { console.error(e); process.exit(1); });

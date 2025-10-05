@@ -1,43 +1,105 @@
-# Filter Service (Argentina) — MVP
+# Filter Search Service (Argentina) — MVP
 
-## Установка локально
-1. `npm i`
-2. Создай `.env` по примеру `.env.example` (DATABASE_URL).
-3. Инициализируй БД: выполни `schema.sql`.
-4. Импортируй пример: `npm run import:csv`
-5. Запусти: `npm run dev` → http://localhost:8080
+Сервис поиска автомобильных фильтров по каталогам производителей для Аргентины. Поддерживает источники: MANN, FRAM, MARENO, MAHLE, WEGA.
 
-## Деплой на Railway
-- Добавь сервис → переменные: `DATABASE_URL`, `PORT=8080`, `NODE_ENV=production`
-- Выполни `schema.sql` в PostgreSQL плагине
-- Импортируй свои CSV: `npm run import:csv`
-- Эндпоинт: `POST /api/lookup` — см. src/types.ts (LookupInput/Output)
+## Быстрый старт
 
-## Импорт CSV на Windows
+### Локальная разработка
+```bash
+# 1. Установка зависимостей
+npm install
 
-### Для cmd.exe:
-```cmd
-set DATABASE_URL=postgres://USER:PASSWORD@HOST:5432/DBNAME
+# 2. Настройка БД
+# Создай PostgreSQL БД и выполни schema.sql
+createdb filter_search
+psql filter_search < schema.sql
+
+# 3. Настройка переменных окружения
+export DATABASE_URL="postgres://user:password@localhost:5432/filter_search"
+
+# 4. Импорт тестовых данных
 npm run import ./data/sample_catalog.csv
+
+# 5. Запуск сервера
+npm run dev
+# Открой http://localhost:8080
 ```
 
-### Для PowerShell:
-```powershell
-$env:DATABASE_URL="postgres://USER:PASSWORD@HOST:5432/DBNAME"
-npm run import ./data/sample_catalog.csv
+### Деплой на Railway
+```bash
+# 1. Создай проект на Railway
+# 2. Добавь PostgreSQL плагин
+# 3. Настрой переменные:
+#    DATABASE_URL (автоматически)
+#    PORT=8080
+#    NODE_ENV=production
+# 4. Выполни schema.sql в Railway PostgreSQL
+# 5. Импортируй данные через Railway CLI или веб-интерфейс
 ```
 
-## LookupInput (JSON)
+## API
+
+### POST /api/lookup
+Поиск фильтров по марке, модели и году автомобиля.
+
+**Запрос:**
 ```json
 {
   "make": "Peugeot",
-  "model": "208",
+  "model": "208", 
   "year": 2019,
-  "hints": { "fuel": null, "ac": null, "displacement_l": null },
+  "hints": {
+    "fuel": "nafta",
+    "ac": true,
+    "displacement_l": 1.6
+  },
   "lang": "es-AR"
 }
 ```
 
-## Ответ
-- `results.oil|air|cabin|fuel` — массив деталей
-- `disambiguation.needed=true` — нужно уточнить `fuel|ac|displacement_l`
+**Ответ:**
+```json
+{
+  "query": { "make": "Peugeot", "model": "208", "year": 2019 },
+  "results": {
+    "oil": [{"brand": "MANN", "part_number": "W712/95", "confidence": 0.95}],
+    "air": [{"brand": "WEGA", "part_number": "WA12345", "confidence": 0.90}],
+    "cabin": [{"brand": "MANN", "part_number": "CUK1234", "confidence": 0.85}],
+    "fuel": [{"brand": "FRAM", "part_number": "WK820/7", "confidence": 0.88}]
+  },
+  "disambiguation": {
+    "needed": false,
+    "ask": []
+  },
+  "notices": ["Resultados basados en catálogos importados."]
+}
+```
+
+### GET /health
+Проверка состояния сервиса.
+
+## Ошибки и коды ответов
+
+| Код | Описание | Причина |
+|-----|----------|---------|
+| 400 | Bad Request | Неверные входные данные (make, model, year) |
+| 404 | Not Found | Нет данных для указанной комбинации |
+| 500 | Internal Server Error | Ошибка сервера |
+| 503 | Service Unavailable | База данных недоступна |
+
+## Структура проекта
+
+- `src/` — исходный код TypeScript
+- `public/` — статические файлы (HTML/CSS/JS)
+- `scripts/` — утилиты импорта данных
+- `data/` — примеры CSV файлов
+- `schema.sql` — схема базы данных
+
+## Документация
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) — архитектура системы
+- [API.md](API.md) — спецификация API
+- [DATA_MODEL.md](DATA_MODEL.md) — модель данных
+- [ETL.md](ETL.md) — процесс импорта данных
+- [DEPLOY.md](DEPLOY.md) — инструкции деплоя
+- [SCOPE.md](SCOPE.md) — рамки MVP
