@@ -11,6 +11,10 @@
     .card { border:1px solid #ddd; border-radius:10px; padding:12px; margin:10px 0; }
     h2 { margin: 12px 0 6px; }
     small { color:#666; }
+    .chip { display:inline-block; background:#e3f2fd; border:1px solid #2196f3; border-radius:16px; padding:4px 12px; margin:2px; font-size:14px; cursor:pointer; }
+    .chip:hover { background:#bbdefb; }
+    .chip::after { content: ' ×'; color:#666; margin-left:4px; }
+    .empty-section { color:#999; font-style:italic; text-align:center; padding:20px; }
   </style>
 </head>
 <body>
@@ -27,6 +31,7 @@
   </div>
 
   <div id="ask" class="card" style="display:none"></div>
+  <div id="hints" class="card" style="display:none"></div>
   <div id="out"></div>
 
   <script>
@@ -78,16 +83,43 @@
         ask.innerHTML = askHTML;
       }
       
+      // Показываем активные hints
+      const hintsDiv = document.getElementById('hints');
+      hintsDiv.style.display = 'none';
+      hintsDiv.innerHTML = '';
+      
+      if (hints && Object.keys(hints).length > 0) {
+        hintsDiv.style.display = 'block';
+        let hintsHTML = '<b>Active filters / Активные фильтры:</b><br/>';
+        
+        if (hints.fuel) {
+          hintsHTML += `<span class="chip" onclick="clearHint('fuel')">fuel: ${hints.fuel}</span>`;
+        }
+        if (hints.ac !== undefined) {
+          hintsHTML += `<span class="chip" onclick="clearHint('ac')">ac: ${hints.ac}</span>`;
+        }
+        if (hints.displacement_l) {
+          hintsHTML += `<span class="chip" onclick="clearHint('displacement_l')">displacement_l: ${hints.displacement_l}</span>`;
+        }
+        
+        hintsDiv.innerHTML = hintsHTML;
+      }
+      
       const out = document.getElementById('out');
       out.innerHTML = '';
       
       function section(title, items) {
-        if (!items || !items.length) return;
-        const div = document.createElement('div'); div.className='card';
-        div.innerHTML = `<h2>${title}</h2>` + items.map(it => {
-          const srcs = (it.sources||[]).map(s=>`${s.catalog} p.${s.page}`).join(', ');
-          return `<div><b>${it.brand} ${it.part_number}</b> — conf ${Math.round(it.confidence*100)}%<br/><small>${srcs}</small></div>`;
-        }).join('');
+        const div = document.createElement('div'); 
+        div.className='card';
+        
+        if (!items || !items.length) {
+          div.innerHTML = `<h2>${title}</h2><div class="empty-section">— No entries / Нет позиций —</div>`;
+        } else {
+          div.innerHTML = `<h2>${title}</h2>` + items.map(it => {
+            const srcs = (it.sources||[]).map(s=>`${s.catalog} p.${s.page}`).join(', ');
+            return `<div><b>${it.brand} ${it.part_number}</b> — conf ${Math.round(it.confidence*100)}%<br/><small>${srcs}</small></div>`;
+          }).join('');
+        }
         out.appendChild(div);
       }
       
@@ -113,6 +145,12 @@
       if (displacement && displacement > 0) {
         run({ ...currentQuery.hints, displacement_l: displacement });
       }
+    }
+    
+    function clearHint(hintName) {
+      const newHints = { ...currentQuery.hints };
+      delete newHints[hintName];
+      run(newHints);
     }
     
     document.getElementById('btn').addEventListener('click', () => run());
