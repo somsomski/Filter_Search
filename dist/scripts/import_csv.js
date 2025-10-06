@@ -23,7 +23,7 @@ async function main() {
     const required = [
         'brand_src', 'catalog_year', 'page', 'make', 'model', 'year_from', 'year_to',
         'engine_code', 'fuel', 'displacement_l', 'power_hp', 'body', 'ac',
-        'filter_type', 'part_number', 'notes'
+        'engine_series', 'engine_desc_raw', 'filter_type', 'part_number', 'notes'
     ];
     const miss = required.filter(k => !header.includes(k));
     if (miss.length) {
@@ -50,6 +50,8 @@ async function main() {
                 power_hp: r[col['power_hp']] ? Number(r[col['power_hp']]) : null,
                 body: r[col['body']] || null,
                 ac: r[col['ac']] === '' ? null : (r[col['ac']].toLowerCase() == 'true'),
+                engine_series: r[col['engine_series']] || null,
+                engine_desc_raw: r[col['engine_desc_raw']] || null,
                 filter_type: r[col['filter_type']],
                 brand_src: r[col['brand_src']],
                 part_number: r[col['part_number']],
@@ -59,11 +61,11 @@ async function main() {
             };
             await pool.query(`INSERT INTO catalog_hit
          (make,model,year_from,year_to,engine_code,fuel,displacement_l,power_hp,body,ac,
-          filter_type,brand_src,part_number,catalog_year,page,notes,ingestion_batch_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`, [
+          engine_series,engine_desc_raw,filter_type,brand_src,part_number,catalog_year,page,notes,ingestion_batch_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`, [
                 vals.make, vals.model, vals.year_from, vals.year_to, vals.engine_code, vals.fuel,
                 vals.displacement_l, vals.power_hp, vals.body, vals.ac,
-                vals.filter_type, vals.brand_src, vals.part_number, vals.catalog_year, vals.page,
+                vals.engine_series, vals.engine_desc_raw, vals.filter_type, vals.brand_src, vals.part_number, vals.catalog_year, vals.page,
                 vals.notes, batchId
             ]);
             ok++;
