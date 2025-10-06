@@ -6,7 +6,7 @@
 
 Обязательные поля для импорта:
 ```csv
-brand_src,catalog_year,page,make,model,year_from,year_to,engine_code,fuel,displacement_l,power_hp,body,ac,filter_type,part_number,notes
+brand_src,catalog_year,page,make,model,year_from,year_to,engine_code,fuel,displacement_l,power_hp,body,ac,engine_series,engine_desc_raw,filter_type,part_number,notes
 ```
 
 **Описание полей:**
@@ -23,6 +23,8 @@ brand_src,catalog_year,page,make,model,year_from,year_to,engine_code,fuel,displa
 - `power_hp` — мощность в л.с. (опционально)
 - `body` — тип кузова (HB, SUV, SEDAN, etc.)
 - `ac` — тип медиа салона: "true" = carbón activo/bio (CUK/FP), "false" = estándar (CU). Не связан с наличием кондиционера.
+- `engine_series` — серия двигателя (например, "TBI 16V", "BLUEHDI", "TSI")
+- `engine_desc_raw` — полное описание двигателя из каталога (левая колонка)
 - `filter_type` — тип фильтра: "oil", "air", "cabin", "fuel"
 - `part_number` — номер детали производителя
 - `notes` — дополнительные заметки (опционально)
@@ -30,12 +32,12 @@ brand_src,catalog_year,page,make,model,year_from,year_to,engine_code,fuel,displa
 ### Пример правильного CSV
 
 ```csv
-brand_src,catalog_year,page,make,model,year_from,year_to,engine_code,fuel,displacement_l,power_hp,body,ac,filter_type,part_number,notes
-MANN,2025,143,Peugeot,208,2015,2021,EC5,nafta,1.6,115,HB,true,oil,W712/95,
-WEGA,2024,55,Peugeot,208,2015,2021,,nafta,1.6,,HB,true,air,WA12345,
-MANN,2025,200,Peugeot,208,2015,2021,,nafta,1.6,,HB,true,cabin,CUK1234,carbón activo/bio
-FRAM,2024,120,Peugeot,208,2015,2021,,nafta,1.6,,HB,true,fuel,WK820/7,
-MANN,2025,90,Dodge,Journey,2010,2016,ED3,nafta,2.4,,SUV,true,oil,W680/1,
+brand_src,catalog_year,page,make,model,year_from,year_to,engine_code,fuel,displacement_l,power_hp,body,ac,engine_series,engine_desc_raw,filter_type,part_number,notes
+MANN,2025,143,Peugeot,208,2015,2021,EC5,nafta,1.6,115,HB,true,TBI 16V,1.6 TBI 16V,oil,W712/95,
+WEGA,2024,55,Peugeot,208,2015,2021,,nafta,1.6,,HB,true,TBI 16V,1.6 TBI 16V,air,WA12345,
+MANN,2025,200,Peugeot,208,2015,2021,,nafta,1.6,,HB,true,TBI 16V,1.6 TBI 16V,cabin,CUK1234,carbón activo/bio
+FRAM,2024,120,Peugeot,208,2015,2021,,nafta,1.6,,HB,true,TBI 16V,1.6 TBI 16V,fuel,WK820/7,
+MANN,2025,90,Dodge,Journey,2010,2016,ED3,nafta,2.4,,SUV,true,ED3,2.4 ED3,oil,W680/1,
 ```
 
 ## Запуск импорта
@@ -166,6 +168,39 @@ HAVING COUNT(*) > 1;
 - **Рекомендуемый размер**: до 50,000 записей за раз
 - **Большие каталоги**: Разбивайте на части по годам или типам фильтров
 - **Время импорта**: ~30 секунд на 10,000 записей
+
+## Правила извлечения серии двигателя
+
+### Поле `engine_desc_raw`
+Полная строка описания двигателя из левой колонки каталога (например, "1.6 TBI 16V", "2.0 BLUEHDI", "1.4 TSI").
+
+### Поле `engine_series`
+Короткий маркер серии двигателя, извлекаемый из `engine_desc_raw`:
+
+1. **Удалить ведущий объём**: `^\s*\d[\.,]\d\s*` (например, "1.8" → "")
+2. **Найти семейство двигателя** по паттерну:
+   ```
+   /\b(bluehdi|jtdm?|h?di|tdi|dci|cdti|crdi|d-?4d|tdci|multijet|tsi|tfsi|gdi|thp|multiair|ecoboost|tbi|jts)\b/i
+   ```
+3. **Опционально добавить клапаны**: `\s*(\d{1,2}v)\b`
+4. **Результат в UPPERCASE**
+
+### Примеры извлечения
+- `"1.6 TBI 16V"` → `"TBI 16V"`
+- `"2.0 BLUEHDI"` → `"BLUEHDI"`
+- `"1.4 TSI"` → `"TSI"`
+- `"1.8 JTDM 16V"` → `"JTDM 16V"`
+- `"2.2 HDI"` → `"HDI"`
+
+### Регулярные выражения для валидации
+```javascript
+// Удаление объёма
+raw.replace(/^\s*\d[\.,]\d\s*/, "")
+
+// Поиск семейства и клапанов
+const match = raw.match(/\b(bluehdi|jtdm?|h?di|tdi|dci|cdti|crdi|d-?4d|tdci|multijet|tsi|tfsi|gdi|thp|multiair|ecoboost|tbi|jts)\b\s*(\d{1,2}v)?/i);
+const series = match ? (match[1] + (match[2] ? ' ' + match[2] : '')).toUpperCase() : null;
+```
 
 ## Troubleshooting
 

@@ -44,4 +44,43 @@ curl -X GET http://localhost:8080/health \
   -w "\nHTTP Status: %{http_code}\n" \
   -s
 
+echo -e "\n---\n"
+
+# Test 4: Engine series disambiguation
+echo "Test 4: Engine series disambiguation"
+curl -X POST http://localhost:8080/api/lookup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "make": "Peugeot",
+    "model": "208",
+    "year": 2019,
+    "hints": {
+      "fuel": "nafta",
+      "ac": true,
+      "displacement_l": 1.6
+    }
+  }' \
+  -w "\nHTTP Status: %{http_code}\n" \
+  -s
+
+echo -e "\n---\n"
+
+# Test 5: Engine series hint provided
+echo "Test 5: Engine series hint provided"
+curl -X POST http://localhost:8080/api/lookup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "make": "Peugeot",
+    "model": "208",
+    "year": 2019,
+    "hints": {
+      "fuel": "nafta",
+      "ac": true,
+      "displacement_l": 1.6,
+      "engine_series": "TBI 16V"
+    }
+  }' \
+  -w "\nHTTP Status: %{http_code}\n" \
+  -s
+
 echo -e "\nSmoke tests completed!"

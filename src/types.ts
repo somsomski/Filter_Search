@@ -8,6 +8,7 @@ export interface LookupInput {
     fuel?: 'nafta'|'diesel'|null;
     ac?: boolean|null;
     displacement_l?: number|null;
+    engine_series?: string|null;
   };
   lang?: 'es-AR'|'ru';
 }
@@ -24,7 +25,7 @@ export interface PartHit {
 }
 
 export interface DisambQuestion {
-  field: 'fuel'|'ac'|'displacement_l';
+  field: 'fuel'|'ac'|'displacement_l'|'engine_series';
   options?: (string|number|boolean)[];
   reason: string;
 }

@@ -57,3 +57,40 @@ Content-Type: application/json
 }
 
 ###
+
+# Test case for engine series disambiguation
+# Expected: Should ask about engine_series if multiple variants exist
+POST http://localhost:8080/api/lookup
+Content-Type: application/json
+
+{
+  "make": "Peugeot",
+  "model": "208",
+  "year": 2019,
+  "hints": {
+    "fuel": "nafta",
+    "ac": true,
+    "displacement_l": 1.6
+  }
+}
+
+###
+
+# Test case with engine_series hint provided
+# Expected: Should NOT ask about engine_series if hint is provided
+POST http://localhost:8080/api/lookup
+Content-Type: application/json
+
+{
+  "make": "Peugeot",
+  "model": "208",
+  "year": 2019,
+  "hints": {
+    "fuel": "nafta",
+    "ac": true,
+    "displacement_l": 1.6,
+    "engine_series": "TBI 16V"
+  }
+}
+
+###

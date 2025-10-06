@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS catalog_hit (
   power_hp INT,
   body TEXT,
   ac BOOLEAN,
+  engine_series TEXT,
+  engine_desc_raw TEXT,
   filter_type TEXT NOT NULL CHECK (filter_type IN ('oil','air','cabin','fuel')),
   brand_src TEXT NOT NULL,
   part_number TEXT NOT NULL,
@@ -41,6 +43,8 @@ CREATE TABLE IF NOT EXISTS catalog_hit (
 - `power_hp` — мощность в лошадиных силах
 - `body` — тип кузова (например, "HB", "SUV")
 - `ac` — наличие кондиционера (true/false)
+- `engine_series` — серия двигателя (например, "TBI 16V", "BLUEHDI", "TSI")
+- `engine_desc_raw` — полное описание двигателя из каталога
 - `filter_type` — тип фильтра: "oil", "air", "cabin", "fuel"
 - `brand_src` — бренд каталога (MANN, FRAM, MARENO, MAHLE, WEGA)
 - `part_number` — номер детали
@@ -87,6 +91,10 @@ ON catalog_hit(make, model, year_from, year_to, filter_type);
 CREATE INDEX IF NOT EXISTS idx_catalog_engine 
 ON catalog_hit(engine_code, fuel, ac);
 
+-- Индекс для дизамбигуации по серии двигателя
+CREATE INDEX IF NOT EXISTS idx_catalog_hit_engine_series 
+ON catalog_hit(engine_series);
+
 -- Индекс для нормализованных деталей
 CREATE INDEX IF NOT EXISTS idx_part_key 
 ON part(brand, part_number, filter_type);
@@ -104,21 +112,21 @@ ON part(brand, part_number, filter_type);
 - `filter_type`, `brand_src`, `part_number`, `catalog_year`, `page` — для идентификации детали
 
 ### Опциональные поля
-- `engine_code`, `fuel`, `displacement_l`, `power_hp`, `body`, `ac`, `notes`
+- `engine_code`, `fuel`, `displacement_l`, `power_hp`, `body`, `ac`, `engine_series`, `engine_desc_raw`, `notes`
 
 ## Примеры данных
 
 ### CSV заголовки
 ```csv
-brand_src,catalog_year,page,make,model,year_from,year_to,engine_code,fuel,displacement_l,power_hp,body,ac,filter_type,part_number,notes
+brand_src,catalog_year,page,make,model,year_from,year_to,engine_code,fuel,displacement_l,power_hp,body,ac,engine_series,engine_desc_raw,filter_type,part_number,notes
 ```
 
 ### Пример записи
 ```csv
-MANN,2025,143,Peugeot,208,2015,2021,EC5,nafta,1.6,115,HB,true,oil,W712/95,
-WEGA,2024,55,Peugeot,208,2015,2021,,nafta,1.6,,HB,true,air,WA12345,
-MANN,2025,200,Peugeot,208,2015,2021,,nafta,1.6,,HB,true,cabin,CUK1234,carbón activo/bio
-FRAM,2024,120,Peugeot,208,2015,2021,,nafta,1.6,,HB,true,fuel,WK820/7,
+MANN,2025,143,Peugeot,208,2015,2021,EC5,nafta,1.6,115,HB,true,TBI 16V,1.6 TBI 16V,oil,W712/95,
+WEGA,2024,55,Peugeot,208,2015,2021,,nafta,1.6,,HB,true,TBI 16V,1.6 TBI 16V,air,WA12345,
+MANN,2025,200,Peugeot,208,2015,2021,,nafta,1.6,,HB,true,TBI 16V,1.6 TBI 16V,cabin,CUK1234,carbón activo/bio
+FRAM,2024,120,Peugeot,208,2015,2021,,nafta,1.6,,HB,true,TBI 16V,1.6 TBI 16V,fuel,WK820/7,
 ```
 
 ## Типы данных
@@ -131,6 +139,8 @@ FRAM,2024,120,Peugeot,208,2015,2021,,nafta,1.6,,HB,true,fuel,WK820/7,
 | `power_hp` | INT | Целые числа |
 | `fuel` | TEXT | "nafta" или "diesel" |
 | `ac` | BOOLEAN | true/false |
+| `engine_series` | TEXT | Серия двигателя (например, "TBI 16V", "BLUEHDI") |
+| `engine_desc_raw` | TEXT | Полное описание двигателя из каталога |
 | `filter_type` | TEXT | "oil", "air", "cabin", "fuel" |
 | `page` | TEXT | Номер страницы (может содержать диапазоны) |
 

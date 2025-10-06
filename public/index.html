@@ -83,6 +83,17 @@
           askHTML += '<input id="displacementInput" type="number" step="0.1" placeholder="ej: 1.6" style="margin-right:8px;"/>';
           askHTML += '<button onclick="answerDisplacement()">Confirmar</button>';
           askHTML += '</div>';
+        } else if (q?.field === 'engine_series') {
+          askHTML += '<div style="margin-top:10px;">';
+          if (q.options && q.options.length > 0) {
+            q.options.forEach(option => {
+              askHTML += `<button onclick="answerEngineSeries('${option}')" style="margin-right:8px; margin-bottom:4px;">${option}</button>`;
+            });
+          } else {
+            askHTML += '<input id="engineSeriesInput" placeholder="ej: TBI 16V" style="margin-right:8px;"/>';
+            askHTML += '<button onclick="answerEngineSeries()">Confirmar</button>';
+          }
+          askHTML += '</div>';
         }
         
         ask.innerHTML = askHTML;
@@ -106,6 +117,9 @@
         }
         if (hints.displacement_l) {
           hintsHTML += `<span class="chip" onclick="clearHint('displacement_l')">displacement_l: ${hints.displacement_l}</span>`;
+        }
+        if (hints.engine_series) {
+          hintsHTML += `<span class="chip" onclick="clearHint('engine_series')">engine_series: ${hints.engine_series}</span>`;
         }
         
         hintsDiv.innerHTML = hintsHTML;
@@ -154,6 +168,17 @@
       const displacement = Number($('#displacementInput').value);
       if (displacement && displacement > 0) {
         run({ ...currentQuery.hints, displacement_l: displacement });
+      }
+    }
+    
+    function answerEngineSeries(series) {
+      if (series) {
+        run({ ...currentQuery.hints, engine_series: series });
+      } else {
+        const inputSeries = $('#engineSeriesInput').value.trim();
+        if (inputSeries) {
+          run({ ...currentQuery.hints, engine_series: inputSeries });
+        }
       }
     }
     

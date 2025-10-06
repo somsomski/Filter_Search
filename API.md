@@ -22,7 +22,8 @@
   "hints": {
     "fuel": "nafta",
     "ac": true,
-    "displacement_l": 1.6
+    "displacement_l": 1.6,
+    "engine_series": "TBI 16V"
   },
   "lang": "es-AR"
 }
@@ -36,6 +37,7 @@
   - `fuel` (string, опциональное) — тип топлива: `"nafta"` или `"diesel"`
   - `ac` (boolean, опциональное) — тип медиа салона: `false` = estándar (CU), `true` = carbón activo/bio (CUK/FP). Не связан с наличием кондиционера.
   - `displacement_l` (number, опциональное) — объем двигателя в литрах
+  - `engine_series` (string, опциональное) — серия двигателя (например, "TBI 16V", "BLUEHDI", "TSI")
 - `lang` (string, опциональное) — язык ответа: `"es-AR"` или `"ru"`
 
 #### Ответ
@@ -52,7 +54,8 @@
     "hints": {
       "fuel": "nafta",
       "ac": true,
-      "displacement_l": 1.6
+      "displacement_l": 1.6,
+      "engine_series": "TBI 16V"
     },
     "lang": "es-AR"
   },
@@ -169,7 +172,7 @@
 
 #### Пример с дизамбигуацией
 
-**Важно**: Дизамбигуация теперь работает пошагово — задается только один вопрос за раз по приоритету: 1) fuel, 2) ac, 3) displacement_l. 
+**Важно**: Дизамбигуация теперь работает пошагово — задается только один вопрос за раз по приоритету: 1) fuel, 2) ac, 3) displacement_l, 4) engine_series. 
 
 **Умная дизамбигуация**: Вопрос по displacement_l задается только если разные значения displacement_l действительно влияют на результат (дают разные детали). Если для разных значений displacement_l получается одинаковый набор деталей, вопрос не задается.
 
@@ -338,6 +341,45 @@
   "disambiguation": {
     "needed": false,
     "ask": []
+  }
+}
+```
+
+**Пример E: Дизамбигуация по серии двигателя**
+```json
+{
+  "make": "Peugeot",
+  "model": "208",
+  "year": 2019,
+  "hints": {
+    "fuel": "nafta",
+    "ac": true,
+    "displacement_l": 1.6
+  }
+}
+```
+Ответ содержит вопрос по engine_series:
+```json
+{
+  "results": {
+    "oil": [{"brand": "MANN", "part_number": "W712/95", ...}],
+    "air": [{"brand": "WEGA", "part_number": "WA12345", ...}],
+    "cabin": [],
+    "fuel": []
+  },
+  "disambiguation": {
+    "needed": true,
+    "ask": [
+      {
+        "field": "engine_series",
+        "options": ["TBI 16V", "JTDM 16V", "TSI"],
+        "reason": "Hay variantes por serie de motor."
+      }
+    ],
+    "fallback_texts": {
+      "es-AR": "¿Serie del motor? (ej.: TBI 16V)",
+      "ru": "Серия двигателя? (например, TBI 16V)"
+    }
   }
 }
 ```
