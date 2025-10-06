@@ -22,7 +22,7 @@ brand_src,catalog_year,page,make,model,year_from,year_to,engine_code,fuel,displa
 - `displacement_l` — объем двигателя в литрах (например, 1.6)
 - `power_hp` — мощность в л.с. (опционально)
 - `body` — тип кузова (HB, SUV, SEDAN, etc.)
-- `ac` — наличие кондиционера: "true" или "false"
+- `ac` — тип медиа салона: "true" = carbón activo/bio (CUK/FP), "false" = estándar (CU). Не связан с наличием кондиционера.
 - `filter_type` — тип фильтра: "oil", "air", "cabin", "fuel"
 - `part_number` — номер детали производителя
 - `notes` — дополнительные заметки (опционально)
@@ -33,7 +33,7 @@ brand_src,catalog_year,page,make,model,year_from,year_to,engine_code,fuel,displa
 brand_src,catalog_year,page,make,model,year_from,year_to,engine_code,fuel,displacement_l,power_hp,body,ac,filter_type,part_number,notes
 MANN,2025,143,Peugeot,208,2015,2021,EC5,nafta,1.6,115,HB,true,oil,W712/95,
 WEGA,2024,55,Peugeot,208,2015,2021,,nafta,1.6,,HB,true,air,WA12345,
-MANN,2025,200,Peugeot,208,2015,2021,,nafta,1.6,,HB,true,cabin,CUK1234,con AC
+MANN,2025,200,Peugeot,208,2015,2021,,nafta,1.6,,HB,true,cabin,CUK1234,carbón activo/bio
 FRAM,2024,120,Peugeot,208,2015,2021,,nafta,1.6,,HB,true,fuel,WK820/7,
 MANN,2025,90,Dodge,Journey,2010,2016,ED3,nafta,2.4,,SUV,true,oil,W680/1,
 ```

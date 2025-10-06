@@ -34,7 +34,7 @@
 - `year` (number, обязательное) — год выпуска
 - `hints` (object, опциональное) — дополнительные уточнения
   - `fuel` (string, опциональное) — тип топлива: `"nafta"` или `"diesel"`
-  - `ac` (boolean, опциональное) — наличие кондиционера
+  - `ac` (boolean, опциональное) — тип медиа салона: `false` = estándar (CU), `true` = carbón activo/bio (CUK/FP). Не связан с наличием кондиционера.
   - `displacement_l` (number, опциональное) — объем двигателя в литрах
 - `lang` (string, опциональное) — язык ответа: `"es-AR"` или `"ru"`
 
@@ -123,7 +123,7 @@
     }
   },
   "notices": [
-    "Resultados basados en catálogos importados. Verificá combustible/AC si hay duda."
+    "Resultados basados en catálogos importados. Verificá combustible/tipo de media si hay duda."
   ]
 }
 ```
@@ -224,7 +224,7 @@
     }
   },
   "notices": [
-    "Resultados basados en catálogos importados. Verificá combustible/AC si hay duda."
+    "Resultados basados en catálogos importados. Verificá combustible/tipo de media si hay duda."
   ]
 }
 ```

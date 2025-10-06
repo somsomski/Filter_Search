@@ -73,6 +73,11 @@
           askHTML += '<button onclick="answerFuel(\'nafta\')" style="margin-right:8px;">Nafta</button>';
           askHTML += '<button onclick="answerFuel(\'diesel\')">Diesel</button>';
           askHTML += '</div>';
+        } else if (q?.field === 'ac') {
+          askHTML += '<div style="margin-top:10px;">';
+          askHTML += '<button onclick="answerAC(false)" style="margin-right:8px;">Estándar (CU)</button>';
+          askHTML += '<button onclick="answerAC(true)">Carbón activo/bio (CUK/FP)</button>';
+          askHTML += '</div>';
         } else if (q?.field === 'displacement_l') {
           askHTML += '<div style="margin-top:10px;">';
           askHTML += '<input id="displacementInput" type="number" step="0.1" placeholder="ej: 1.6" style="margin-right:8px;"/>';
@@ -96,7 +101,8 @@
           hintsHTML += `<span class="chip" onclick="clearHint('fuel')">fuel: ${hints.fuel}</span>`;
         }
         if (hints.ac !== undefined) {
-          hintsHTML += `<span class="chip" onclick="clearHint('ac')">ac: ${hints.ac}</span>`;
+          const acLabel = hints.ac ? 'Carbón activo/bio (CUK/FP)' : 'Estándar (CU)';
+          hintsHTML += `<span class="chip" onclick="clearHint('ac')">ac: ${acLabel}</span>`;
         }
         if (hints.displacement_l) {
           hintsHTML += `<span class="chip" onclick="clearHint('displacement_l')">displacement_l: ${hints.displacement_l}</span>`;
@@ -138,6 +144,10 @@
     
     function answerFuel(fuel) {
       run({ ...currentQuery.hints, fuel });
+    }
+    
+    function answerAC(ac) {
+      run({ ...currentQuery.hints, ac });
     }
     
     function answerDisplacement() {

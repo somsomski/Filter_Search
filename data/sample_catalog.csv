@@ -1,10 +1,10 @@
 brand_src,catalog_year,page,make,model,year_from,year_to,engine_code,fuel,displacement_l,power_hp,body,ac,filter_type,part_number,notes
 MANN,2025,143,Peugeot,208,2015,2021,EC5,nafta,1.6,115,HB,true,oil,W712/95,
 WEGA,2024,55,Peugeot,208,2015,2021,,nafta,1.6,,HB,true,air,WA12345,
-MANN,2025,200,Peugeot,208,2015,2021,,nafta,1.6,,HB,true,cabin,CUK1234,con AC
+MANN,2025,200,Peugeot,208,2015,2021,,nafta,1.6,,HB,true,cabin,CUK1234,carbón activo/bio
 FRAM,2024,120,Peugeot,208,2015,2021,,nafta,1.6,,HB,true,fuel,WK820/7,
 MANN,2025,90,Dodge,Journey,2010,2016,ED3,nafta,2.4,,SUV,true,oil,W680/1,
 WEGA,2024,90,Dodge,Journey,2010,2016,,nafta,2.4,,SUV,true,air,WA67890,
-MANN,2025,91,Dodge,Journey,2010,2016,,nafta,2.4,,SUV,true,cabin,CUK9876,con AC
+MANN,2025,91,Dodge,Journey,2010,2016,,nafta,2.4,,SUV,true,cabin,CUK9876,carbón activo/bio
 FRAM,2024,91,Dodge,Journey,2010,2016,,nafta,2.4,,SUV,true,fuel,WK950/5,
 MANN,2025,210,Peugeot,208,2019,2021,,diesel,1.5,,HB,true,fuel,WK820/8,

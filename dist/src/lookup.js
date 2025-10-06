@@ -50,7 +50,7 @@ function inferDisambiguation(rows, hints) {
         ask.push({ field: 'fuel', options: ['nafta', 'diesel'], reason: 'Hay variantes por combustible.' });
     }
     else if (hints?.fuel && !hints.ac && acs.size > 1) {
-        ask.push({ field: 'ac', options: [true, false], reason: 'Hay variantes con/sin aire acondicionado.' });
+        ask.push({ field: 'ac', options: [true, false], reason: 'Hay variantes por tipo de media de cabina.' });
     }
     else if (!hints?.displacement_l && doesDisplacementAffectResult(filtered)) {
         const dispValues = [];
@@ -193,14 +193,14 @@ export async function lookup(input) {
                 ask,
                 fallback_texts: {
                     'es-AR': ask[0]?.field === 'fuel' ? '¿Nafta o diésel?' :
-                        ask[0]?.field === 'ac' ? '¿Tiene aire acondicionado?' :
+                        ask[0]?.field === 'ac' ? '¿Filtro de cabina: estándar (CU) o carbón activo/bio (CUK/FP)?' :
                             'Decime la cilindrada (ej: 1.6).',
                     'ru': ask[0]?.field === 'fuel' ? 'Nafta или diesel?' :
-                        ask[0]?.field === 'ac' ? 'Есть кондиционер (AC)?' :
+                        ask[0]?.field === 'ac' ? 'Салонный фильтр: стандарт (CU) или уголь/био (CUK/FP)?' :
                             'Уточни объем двигателя (например, 1.6).'
                 }
             }
             : { needed: false, ask: [] },
-        notices: ['Resultados basados en catálogos importados. Verificá combustible/AC si hay duda.']
+        notices: ['Resultados basados en catálogos importados. Verificá combustible/tipo de media si hay duda.']
     };
 }
