@@ -43,7 +43,7 @@ async function main() {
                 make: r[col['make']],
                 model: r[col['model']],
                 year_from: Number(r[col['year_from']]),
-                year_to: Number(r[col['year_to']]),
+                year_to: r[col['year_to']] && r[col['year_to']].trim() ? Number(r[col['year_to']]) : null,
                 engine_code: r[col['engine_code']] || null,
                 fuel: r[col['fuel']] || null,
                 displacement_l: r[col['displacement_l']] ? Number(r[col['displacement_l']]) : null,

@@ -5,7 +5,7 @@ type Row = {
   make: string;
   model: string;
   year_from: number;
-  year_to: number;
+  year_to: number | null;
   engine_code: string | null;
   fuel: string | null;
   displacement_l: number | string | null;
@@ -151,7 +151,8 @@ export async function lookup(input: LookupInput): Promise<LookupOutput> {
     FROM catalog_hit
     WHERE LOWER(make) = LOWER($1)
       AND LOWER(model) = LOWER($2)
-      AND $3 BETWEEN year_from AND year_to
+      AND $3 >= year_from
+      AND (year_to IS NULL OR $3 <= year_to)
     `,
     [make, model, year]
   );

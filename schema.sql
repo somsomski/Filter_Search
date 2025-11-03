@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS catalog_hit (
   make TEXT NOT NULL,
   model TEXT NOT NULL,
   year_from INT NOT NULL,
-  year_to INT NOT NULL,
+  year_to INT,
   engine_code TEXT,
   fuel TEXT,
   displacement_l NUMERIC(3,1),

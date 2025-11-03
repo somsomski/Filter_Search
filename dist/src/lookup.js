@@ -116,7 +116,8 @@ export async function lookup(input) {
     FROM catalog_hit
     WHERE LOWER(make) = LOWER($1)
       AND LOWER(model) = LOWER($2)
-      AND $3 BETWEEN year_from AND year_to
+      AND $3 >= year_from
+      AND (year_to IS NULL OR $3 <= year_to)
     `, [make, model, year]);
     const rows = result.rows;
     if (rows.length === 0) {

@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS catalog_hit (
   make TEXT NOT NULL,
   model TEXT NOT NULL,
   year_from INT NOT NULL,
-  year_to INT NOT NULL,
+  year_to INT,
   engine_code TEXT,
   fuel TEXT,
   displacement_l NUMERIC(3,1),
@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS catalog_hit (
 - `make` — марка автомобиля (например, "Peugeot")
 - `model` — модель автомобиля (например, "208")
 - `year_from` — начальный год производства
-- `year_to` — конечный год производства
+- `year_to` — конечный год производства (NULL означает, что модель еще выпускается)
 - `engine_code` — код двигателя (опционально)
 - `fuel` — тип топлива: "nafta" или "diesel"
 - `displacement_l` — объем двигателя в литрах
