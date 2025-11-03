@@ -51,7 +51,17 @@ function score(
   if (dispMatched || ctx.displacementUnique) s += 0.25;
 
   const engineSeriesMatched = !!(hints?.engine_series && row.engine_series && hints.engine_series === row.engine_series);
-  if (engineSeriesMatched || ctx.engineSeriesUnique) s += 0.20;
+  // Если engine_series не уникален и не указан в hints, не даем полные баллы
+  if (engineSeriesMatched) {
+    s += 0.20;
+  } else if (ctx.engineSeriesUnique && !row.engine_series) {
+    // Если engine_series уникален для всех записей и у этой записи его нет - это нормально
+    s += 0.20;
+  } else if (ctx.engineSeriesUnique && row.engine_series) {
+    // Если engine_series уникален и у записи он есть
+    s += 0.20;
+  }
+  // Если engine_series НЕ уникален и не указан в hints - не добавляем баллы
 
   if (row.engine_code) s += 0.10;
 
@@ -252,7 +262,19 @@ export async function lookup(input: LookupInput): Promise<LookupOutput> {
   for (const ft of ['oil','air','cabin','fuel'] as FilterType[]) {
     const list = Array.from(byType.get(ft)!.values()).sort((a, b) => b.confidence - a.confidence);
     if (list.length === 1) {
-      list[0].confidence = Math.max(list[0].confidence, 0.95);
+      // Повышаем confidence только если нет неопределенности
+      if (!needAsk) {
+        list[0].confidence = Math.max(list[0].confidence, 0.95);
+      }
+    }
+    // Если есть вопрос дизамбигуации, снижаем confidence для всех результатов
+    if (needAsk && ask.length > 0) {
+      const askingField = ask[0].field;
+      // Особенно снижаем confidence если спрашивается engine_series
+      const penalty = askingField === 'engine_series' ? 0.15 : 0.10;
+      for (const item of list) {
+        item.confidence = Math.max(0.50, item.confidence - penalty);
+      }
     }
     results[ft] = list;
   }
