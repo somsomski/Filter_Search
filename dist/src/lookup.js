@@ -55,10 +55,10 @@ function inferDisambiguation(rows, hints) {
     if (!hints?.fuel && fuels.size > 1) {
         ask.push({ field: 'fuel', options: ['nafta', 'diesel'], reason: 'Hay variantes por combustible.' });
     }
-    else if (hints?.fuel && !hints.ac && acs.size > 1) {
+    else if ((hints?.fuel || fuels.size <= 1) && !hints.ac && acs.size > 1) {
         ask.push({ field: 'ac', options: [true, false], reason: 'Hay variantes por tipo de media de cabina.' });
     }
-    else if (hints?.fuel && hints.ac && !hints.displacement_l && doesDisplacementAffectResult(filtered)) {
+    else if ((hints?.fuel || fuels.size <= 1) && (hints?.ac !== undefined || acs.size <= 1) && !hints.displacement_l && doesDisplacementAffectResult(filtered)) {
         const dispValues = [];
         for (const r of filtered) {
             const n = toNumberOrNull(r.displacement_l);
@@ -71,7 +71,7 @@ function inferDisambiguation(rows, hints) {
         const opts = Array.from(roundedUnique).sort((a, b) => a - b);
         ask.push({ field: 'displacement_l', options: opts, reason: 'Hay variantes por cilindrada.' });
     }
-    else if (hints?.fuel && hints.ac && (hints.displacement_l || !doesDisplacementAffectResult(filtered)) && !hints.engine_series && engineSeries.size > 1 && doesEngineSeriesAffectResult(filtered)) {
+    else if ((hints?.fuel || fuels.size <= 1) && (hints?.ac !== undefined || acs.size <= 1) && (hints.displacement_l || !doesDisplacementAffectResult(filtered)) && !hints.engine_series && engineSeries.size > 1 && doesEngineSeriesAffectResult(filtered)) {
         const opts = Array.from(engineSeries).sort();
         ask.push({ field: 'engine_series', options: opts, reason: 'Hay variantes por serie de motor.' });
     }
