@@ -374,3 +374,42 @@ export async function lookup(input) {
         notices: ['Resultados basados en catálogos importados. Verificá combustible/tipo de media si hay duda.']
     };
 }
+/**
+ * Получает список моделей для автокомплита по марке и частичному вводу модели
+ */
+export async function suggestModels(make, modelPrefix, limit = 10) {
+    if (!make || !make.trim()) {
+        return [];
+    }
+    if (!pool) {
+        throw Object.assign(new Error('Database not available'), { status: 503 });
+    }
+    const modelPrefixLower = modelPrefix.toLowerCase().trim();
+    let query;
+    let params;
+    if (modelPrefixLower.length === 0) {
+        // Если префикс пустой, возвращаем все модели для данной марки
+        query = `
+      SELECT DISTINCT model
+      FROM catalog_hit
+      WHERE LOWER(make) = LOWER($1)
+      ORDER BY model
+      LIMIT $2
+    `;
+        params = [make, limit];
+    }
+    else {
+        // Если есть префикс, ищем модели, начинающиеся с него
+        query = `
+      SELECT DISTINCT model
+      FROM catalog_hit
+      WHERE LOWER(make) = LOWER($1)
+        AND LOWER(model) LIKE LOWER($2) || '%'
+      ORDER BY model
+      LIMIT $3
+    `;
+        params = [make, modelPrefix, limit];
+    }
+    const result = await pool.query(query, params);
+    return result.rows.map(row => row.model);
+}

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { lookup } from './lookup.js';
+import { lookup, suggestModels } from './lookup.js';
 
 const router = Router();
 
@@ -29,6 +29,24 @@ router.post('/api/lookup', async (req, res) => {
     
     const out = await lookup(payload);
     res.json(out);
+  } catch (e: any) {
+    const status = e?.status ?? 500;
+    res.status(status).json({ error: e.message ?? 'Internal error' });
+  }
+});
+
+router.get('/api/suggest-models', async (req, res) => {
+  try {
+    const make = req.query.make as string;
+    const modelPrefix = (req.query.modelPrefix as string) || '';
+    const limit = parseInt(req.query.limit as string) || 10;
+    
+    if (!make || typeof make !== 'string' || make.trim().length === 0) {
+      return res.status(400).json({ error: 'make is required and must be a non-empty string' });
+    }
+    
+    const suggestions = await suggestModels(make.trim(), modelPrefix.trim(), limit);
+    res.json({ suggestions });
   } catch (e: any) {
     const status = e?.status ?? 500;
     res.status(status).json({ error: e.message ?? 'Internal error' });

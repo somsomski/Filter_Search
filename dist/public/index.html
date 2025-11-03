@@ -15,13 +15,40 @@
     .chip:hover { background:#bbdefb; }
     .chip::after { content: ' ×'; color:#666; margin-left:4px; }
     .empty-section { color:#999; font-style:italic; text-align:center; padding:20px; }
+    .model-input-wrapper { position:relative; display:inline-block; }
+    .suggestions-dropdown { 
+      position:absolute; 
+      top:100%; 
+      left:0; 
+      right:0; 
+      background:white; 
+      border:1px solid #ccc; 
+      border-top:none; 
+      border-radius:0 0 4px 4px; 
+      max-height:200px; 
+      overflow-y:auto; 
+      z-index:1000; 
+      box-shadow:0 4px 6px rgba(0,0,0,0.1);
+      display:none;
+    }
+    .suggestions-dropdown.show { display:block; }
+    .suggestion-item { 
+      padding:8px 12px; 
+      cursor:pointer; 
+      border-bottom:1px solid #eee; 
+    }
+    .suggestion-item:hover { background:#f5f5f5; }
+    .suggestion-item:last-child { border-bottom:none; }
   </style>
 </head>
 <body>
   <h1>Buscador de filtros (Argentina)</h1>
   <div class="row">
     <input id="make" placeholder="Marca (ej: Peugeot)" />
-    <input id="model" placeholder="Modelo (ej: 208)" />
+    <div class="model-input-wrapper">
+      <input id="model" placeholder="Modelo (ej: 208)" autocomplete="off" />
+      <div id="suggestions" class="suggestions-dropdown"></div>
+    </div>
     <input id="year" type="number" placeholder="Año (ej: 2019)" />
     <select id="lang">
       <option value="es-AR" selected>es-AR</option>
@@ -39,8 +66,93 @@
     const api = (path)=>path;
     
     let currentQuery = {};
+    let suggestionTimeout = null;
+    
+    // Автокомплит для моделей
+    async function loadSuggestions() {
+      const make = $('#make').value.trim();
+      const model = $('#model').value.trim();
+      const suggestionsDiv = $('#suggestions');
+      
+      // Если марка не указана, скрываем предложения
+      if (!make) {
+        suggestionsDiv.classList.remove('show');
+        return;
+      }
+      
+      try {
+        const resp = await fetch(api(`/api/suggest-models?make=${encodeURIComponent(make)}&modelPrefix=${encodeURIComponent(model)}&limit=10`));
+        const data = await resp.json();
+        
+        if (data.suggestions && data.suggestions.length > 0) {
+          suggestionsDiv.innerHTML = '';
+          data.suggestions.forEach(suggestion => {
+            const item = document.createElement('div');
+            item.className = 'suggestion-item';
+            item.textContent = suggestion;
+            item.onclick = () => {
+              $('#model').value = suggestion;
+              suggestionsDiv.classList.remove('show');
+            };
+            suggestionsDiv.appendChild(item);
+          });
+          suggestionsDiv.classList.add('show');
+        } else {
+          suggestionsDiv.classList.remove('show');
+        }
+      } catch (e) {
+        console.error('Error loading suggestions:', e);
+        suggestionsDiv.classList.remove('show');
+      }
+    }
+    
+    // Обработчик ввода в поле модели
+    $('#model').addEventListener('input', () => {
+      // Задержка перед запросом (debounce)
+      if (suggestionTimeout) {
+        clearTimeout(suggestionTimeout);
+      }
+      suggestionTimeout = setTimeout(() => {
+        loadSuggestions();
+      }, 300);
+    });
+    
+    // Обработчик ввода в поле марки - перезагружаем предложения
+    $('#make').addEventListener('input', () => {
+      if (suggestionTimeout) {
+        clearTimeout(suggestionTimeout);
+      }
+      suggestionTimeout = setTimeout(() => {
+        loadSuggestions();
+      }, 300);
+    });
+    
+    // Скрываем предложения при клике вне области
+    document.addEventListener('click', (e) => {
+      const wrapper = document.querySelector('.model-input-wrapper');
+      if (wrapper && !wrapper.contains(e.target)) {
+        $('#suggestions').classList.remove('show');
+      }
+    });
+    
+    // Показываем предложения при фокусе на поле модели
+    $('#model').addEventListener('focus', () => {
+      const make = $('#make').value.trim();
+      if (make) {
+        loadSuggestions();
+      }
+    });
+    
+    // Скрываем предложения при нажатии Enter
+    $('#model').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        $('#suggestions').classList.remove('show');
+      }
+    });
     
     async function run(hints = {}) {
+      // Скрываем предложения при поиске
+      $('#suggestions').classList.remove('show');
       const make = $('#make').value.trim();
       const model = $('#model').value.trim();
       const year = Number($('#year').value);
