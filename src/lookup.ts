@@ -50,9 +50,8 @@ function score(
   const dispMatched = hintDisp != null && rowDisp != null && Math.abs(rowDisp - hintDisp) <= 0.1;
   if (dispMatched || ctx.displacementUnique) s += 0.25;
 
-  // Engine series support will be enabled after migration
-  // const engineSeriesMatched = !!(hints?.engine_series && row.engine_series && hints.engine_series === row.engine_series);
-  // if (engineSeriesMatched || ctx.engineSeriesUnique) s += 0.20;
+  const engineSeriesMatched = !!(hints?.engine_series && row.engine_series && hints.engine_series === row.engine_series);
+  if (engineSeriesMatched || ctx.engineSeriesUnique) s += 0.20;
 
   if (row.engine_code) s += 0.10;
 
@@ -71,15 +70,13 @@ function inferDisambiguation(rows: Row[], hints: LookupInput['hints']): DisambQu
     const hintDisp = toNumberOrNull(hints?.displacement_l as any);
     const rowDisp = toNumberOrNull(r.displacement_l);
     if (hintDisp != null && rowDisp != null && Math.abs(rowDisp - hintDisp) > 0.1) return false;
-  // Engine series support will be enabled after migration
-  // if (hints?.engine_series && r.engine_series && r.engine_series !== hints.engine_series) return false;
+    if (hints?.engine_series && r.engine_series && r.engine_series !== hints.engine_series) return false;
     return true;
   });
   
   const fuels = new Set(filtered.map(r => r.fuel).filter(Boolean) as string[]);
   const acs = new Set(filtered.map(r => String(r.ac)).filter(v => v !== 'null'));
-  // Engine series support will be enabled after migration
-  // const engineSeries = new Set(filtered.map(r => r.engine_series).filter(Boolean) as string[]);
+  const engineSeries = new Set(filtered.map(r => r.engine_series).filter(Boolean) as string[]);
   
   // Пошаговая дизамбигуация: один вопрос за раз по приоритету
   // 1) fuel, 2) ac, 3) displacement_l, 4) engine_series
@@ -100,12 +97,10 @@ function inferDisambiguation(rows: Row[], hints: LookupInput['hints']): DisambQu
     );
     const opts = Array.from(roundedUnique).sort((a, b) => a - b);
     ask.push({ field: 'displacement_l', options: opts, reason: 'Hay variantes por cilindrada.' });
+  } else if (hints?.fuel && hints.ac && (hints.displacement_l || !doesDisplacementAffectResult(filtered)) && !hints.engine_series && engineSeries.size > 1 && doesEngineSeriesAffectResult(filtered)) {
+    const opts = Array.from(engineSeries).sort();
+    ask.push({ field: 'engine_series', options: opts, reason: 'Hay variantes por serie de motor.' });
   }
-  // Engine series support will be enabled after migration
-  // } else if (hints?.fuel && hints.ac && !hints.engine_series && engineSeries.size > 1) {
-  //   const opts = Array.from(engineSeries).sort();
-  //   ask.push({ field: 'engine_series', options: opts, reason: 'Hay variantes por serie de motor.' });
-  // }
   return ask;
 }
 
@@ -135,6 +130,31 @@ function doesDisplacementAffectResult(rows: Row[]): boolean {
   return false; // displacement_l не влияет на результат
 }
 
+function doesEngineSeriesAffectResult(rows: Row[]): boolean {
+  // Группируем записи по (filter_type, brand_src, part_number)
+  const groups = new Map<string, Set<string>>();
+  
+  for (const r of rows) {
+    if (!r.engine_series) continue; // Исключаем NULL значения
+    
+    const key = `${r.filter_type}::${r.brand_src}::${r.part_number}`;
+    if (!groups.has(key)) {
+      groups.set(key, new Set());
+    }
+    groups.get(key)!.add(r.engine_series);
+  }
+  
+  // Проверяем, есть ли группы с разными значениями engine_series
+  // Это означает, что engine_series влияет на результат
+  for (const [key, engineSeries] of groups) {
+    if (engineSeries.size > 1) {
+      return true; // engine_series влияет на результат
+    }
+  }
+  
+  return false; // engine_series не влияет на результат
+}
+
 export async function lookup(input: LookupInput): Promise<LookupOutput> {
   const { make, model, year } = input;
   const hints = input.hints ?? {};
@@ -147,7 +167,7 @@ export async function lookup(input: LookupInput): Promise<LookupOutput> {
   const result = await pool.query<Row>(
     `
     SELECT make, model, year_from, year_to, engine_code, fuel, displacement_l, power_hp, body, ac,
-           filter_type, brand_src, part_number, catalog_year, page
+           engine_series, engine_desc_raw, filter_type, brand_src, part_number, catalog_year, page
     FROM catalog_hit
     WHERE LOWER(make) = LOWER($1)
       AND LOWER(model) = LOWER($2)
@@ -178,8 +198,7 @@ export async function lookup(input: LookupInput): Promise<LookupOutput> {
     const hintDisp = toNumberOrNull(hints.displacement_l as any);
     const rowDisp = toNumberOrNull(r.displacement_l);
     if (hintDisp != null && rowDisp != null && Math.abs(rowDisp - hintDisp) > 0.1) return false;
-    // Engine series support will be enabled after migration
-    // if (hints.engine_series && r.engine_series && r.engine_series !== hints.engine_series) return false;
+    if (hints.engine_series && r.engine_series && r.engine_series !== hints.engine_series) return false;
     return true;
   });
   const working = filtered.length > 0 ? filtered : rows;
@@ -193,13 +212,12 @@ export async function lookup(input: LookupInput): Promise<LookupOutput> {
       .filter((v): v is number => v != null)
       .map(v => Math.round(v * 10) / 10)
   );
-  // Engine series support will be enabled after migration
-  // const engineSeriesSet = new Set(working.map(r => r.engine_series).filter(Boolean) as string[]);
+  const engineSeriesSet = new Set(working.map(r => r.engine_series).filter(Boolean) as string[]);
   const ctx = {
     fuelUnique: fuelSet.size === 1,
     acUnique: acSet.size === 1,
     displacementUnique: dispSet.size === 1,
-    engineSeriesUnique: true, // Will be enabled after migration
+    engineSeriesUnique: engineSeriesSet.size === 1,
   };
   const byType = new Map<FilterType, Map<string, PartHit>>();
   for (const ft of ['oil','air','cabin','fuel'] as FilterType[]) byType.set(ft, new Map());
