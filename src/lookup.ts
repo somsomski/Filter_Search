@@ -19,6 +19,7 @@ type Row = {
   part_number: string;
   catalog_year: number;
   page: string;
+  notes: string | null;
 };
 
 const FILTERS: FilterType[] = ['oil','air','cabin','fuel'];
@@ -28,6 +29,48 @@ function toNumberOrNull(value: number | string | null | undefined): number | nul
   if (typeof value === 'number') return Number.isFinite(value) ? value : null;
   const n = parseFloat(String(value).replace(',', '.'));
   return Number.isFinite(n) ? n : null;
+}
+
+interface ParsedNotes {
+  comment?: string;
+  date?: string;
+  xref?: string;
+}
+
+function parseNotes(notes: string | null): ParsedNotes {
+  if (!notes) return {};
+  
+  const result: ParsedNotes = {};
+  
+  // Парсим формат: date=2008-11..;comment="C/C. Activado";xref=MANN:CUK4436
+  const parts = notes.split(';');
+  
+  for (const part of parts) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    
+    const eqIndex = trimmed.indexOf('=');
+    if (eqIndex === -1) continue;
+    
+    const key = trimmed.substring(0, eqIndex).trim();
+    let value = trimmed.substring(eqIndex + 1).trim();
+    
+    // Убираем кавычки если есть
+    if ((value.startsWith('"') && value.endsWith('"')) || 
+        (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    
+    if (key === 'comment') {
+      result.comment = value;
+    } else if (key === 'date') {
+      result.date = value;
+    } else if (key === 'xref') {
+      result.xref = value;
+    }
+  }
+  
+  return result;
 }
 
 function score(
@@ -177,7 +220,7 @@ export async function lookup(input: LookupInput): Promise<LookupOutput> {
   const result = await pool.query<Row>(
     `
     SELECT make, model, year_from, year_to, engine_code, fuel, displacement_l, power_hp, body, ac,
-           engine_series, engine_desc_raw, filter_type, brand_src, part_number, catalog_year, page
+           engine_series, engine_desc_raw, filter_type, brand_src, part_number, catalog_year, page, notes
     FROM catalog_hit
     WHERE LOWER(make) = LOWER($1)
       AND LOWER(model) = LOWER($2)
@@ -230,25 +273,114 @@ export async function lookup(input: LookupInput): Promise<LookupOutput> {
     engineSeriesUnique: engineSeriesSet.size === 1,
   };
   const byType = new Map<FilterType, Map<string, PartHit>>();
-  for (const ft of ['oil','air','cabin','fuel'] as FilterType[]) byType.set(ft, new Map());
+  const notesByType = new Map<FilterType, Map<string, ParsedNotes[]>>();
+  
+  for (const ft of ['oil','air','cabin','fuel'] as FilterType[]) {
+    byType.set(ft, new Map());
+    notesByType.set(ft, new Map());
+  }
+  
+  // Собираем все notes для каждого фильтра
+  for (const r of working) {
+    const key = `${r.brand_src}::${r.part_number}`;
+    const bucket = notesByType.get(r.filter_type)!;
+    if (!bucket.has(key)) {
+      bucket.set(key, []);
+    }
+    const parsed = parseNotes(r.notes);
+    if (parsed.comment || parsed.date || parsed.xref) {
+      bucket.get(key)!.push(parsed);
+    }
+  }
+  
+  // Обрабатываем записи и добавляем notes
   for (const r of working) {
     const conf = score(r, hints, ctx);
     const key = `${r.brand_src}::${r.part_number}`;
     const bucket = byType.get(r.filter_type)!;
+    const notesList = notesByType.get(r.filter_type)!.get(key) || [];
+    
     if (!bucket.has(key)) {
-      bucket.set(key, {
+      const parsed = parseNotes(r.notes);
+      const partHit: PartHit = {
         brand: r.brand_src,
         part_number: r.part_number,
         filter_type: r.filter_type,
         confidence: conf,
         sources: [{ catalog: `${r.brand_src} ${r.catalog_year}`, page: r.page }]
-      });
+      };
+      
+      // Всегда добавляем comment если есть
+      if (parsed.comment) {
+        partHit.comment = parsed.comment;
+      }
+      
+      // xref в тестовом режиме
+      if (parsed.xref) {
+        partHit.xref = parsed.xref;
+      }
+      
+      bucket.set(key, partHit);
     } else {
       const ph = bucket.get(key)!;
       ph.confidence = Math.max(ph.confidence, conf);
       const tag = `${r.brand_src} ${r.catalog_year}`;
       if (!ph.sources.find(s => s.catalog === tag && s.page === r.page)) {
         ph.sources.push({ catalog: tag, page: r.page });
+      }
+      
+      // Обновляем comment если есть новый
+      const parsed = parseNotes(r.notes);
+      if (parsed.comment && !ph.comment) {
+        ph.comment = parsed.comment;
+      }
+      
+      // Обновляем xref если есть новый
+      if (parsed.xref && !ph.xref) {
+        ph.xref = parsed.xref;
+      }
+    }
+  }
+  
+  // Проверяем различия в date и добавляем date только если есть различия
+  for (const ft of ['oil','air','cabin','fuel'] as FilterType[]) {
+    const bucket = byType.get(ft)!;
+    const notesBucket = notesByType.get(ft)!;
+    
+    // Собираем все уникальные dates для каждого типа фильтра
+    const datesByKey = new Map<string, Set<string>>();
+    for (const [key, notesList] of notesBucket) {
+      const dates = new Set<string>();
+      for (const note of notesList) {
+        if (note.date) {
+          dates.add(note.date);
+        }
+      }
+      if (dates.size > 0) {
+        datesByKey.set(key, dates);
+      }
+    }
+    
+    // Проверяем, есть ли различия в date между фильтрами
+    const allDates = new Set<string>();
+    for (const dates of datesByKey.values()) {
+      for (const date of dates) {
+        allDates.add(date);
+      }
+    }
+    const hasDateDifferences = allDates.size > 1;
+    
+    // Если есть различия, добавляем date к каждому фильтру
+    if (hasDateDifferences) {
+      for (const [key, partHit] of bucket) {
+        const notesList = notesBucket.get(key) || [];
+        // Берем первый найденный date
+        for (const note of notesList) {
+          if (note.date) {
+            partHit.date = note.date;
+            break;
+          }
+        }
       }
     }
   }

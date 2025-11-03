@@ -22,6 +22,9 @@ export interface PartHit {
   confidence: number;     // 0..1
   sources: SourceRef[];
   alt?: { brand: string; part_number: string }[];
+  comment?: string;       // Из поля notes
+  date?: string;          // Из поля notes, показывается только при различиях
+  xref?: string;          // Из поля notes, в тестовом режиме
 }
 
 export interface DisambQuestion {

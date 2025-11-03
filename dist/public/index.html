@@ -137,7 +137,24 @@
         } else {
           div.innerHTML = `<h2>${title}</h2>` + items.map(it => {
             const srcs = (it.sources||[]).map(s=>`${s.catalog} p.${s.page}`).join(', ');
-            return `<div><b>${it.brand} ${it.part_number}</b> — conf ${Math.round(it.confidence*100)}%<br/><small>${srcs}</small></div>`;
+            let notesHtml = '';
+            
+            // Комментарий всегда показываем
+            if (it.comment) {
+              notesHtml += `<br/><small style="color:#666;">💬 ${it.comment}</small>`;
+            }
+            
+            // Дата показываем только если есть
+            if (it.date) {
+              notesHtml += `<br/><small style="color:#666;">📅 ${it.date}</small>`;
+            }
+            
+            // xref показываем в тестовом режиме
+            if (it.xref) {
+              notesHtml += `<br/><small style="color:#999; font-style:italic;">🔗 xref: ${it.xref}</small>`;
+            }
+            
+            return `<div><b>${it.brand} ${it.part_number}</b> — conf ${Math.round(it.confidence*100)}%<br/><small>${srcs}</small>${notesHtml}</div>`;
           }).join('');
         }
         out.appendChild(div);
