@@ -437,9 +437,47 @@ export async function lookup(input: LookupInput): Promise<LookupOutput> {
 }
 
 /**
- * Получает список моделей для автокомплита по марке и частичному вводу модели
+ * Получает список марок для автокомплита по частичному вводу марки
  */
-export async function suggestModels(make: string, modelPrefix: string, limit: number = 10): Promise<string[]> {
+export async function suggestMakes(makePrefix: string, limit: number = 100): Promise<string[]> {
+  if (!pool) {
+    throw Object.assign(new Error('Database not available'), { status: 503 });
+  }
+  
+  const makePrefixLower = makePrefix.toLowerCase().trim();
+  let query: string;
+  let params: any[];
+  
+  if (makePrefixLower.length === 0) {
+    // Если префикс пустой, возвращаем все марки
+    query = `
+      SELECT DISTINCT make
+      FROM catalog_hit
+      ORDER BY make
+      LIMIT $1
+    `;
+    params = [limit];
+  } else {
+    // Если есть префикс, ищем марки, начинающиеся с него
+    query = `
+      SELECT DISTINCT make
+      FROM catalog_hit
+      WHERE LOWER(make) LIKE LOWER($1) || '%'
+      ORDER BY make
+      LIMIT $2
+    `;
+    params = [makePrefix, limit];
+  }
+  
+  const result = await pool.query<{ make: string }>(query, params);
+  return result.rows.map(row => row.make);
+}
+
+/**
+ * Получает список моделей для автокомплита по марке и частичному вводу модели
+ * Без ограничения количества - возвращает все доступные модели
+ */
+export async function suggestModels(make: string, modelPrefix: string): Promise<string[]> {
   if (!make || !make.trim()) {
     return [];
   }
@@ -458,9 +496,8 @@ export async function suggestModels(make: string, modelPrefix: string, limit: nu
       FROM catalog_hit
       WHERE LOWER(make) = LOWER($1)
       ORDER BY model
-      LIMIT $2
     `;
-    params = [make, limit];
+    params = [make];
   } else {
     // Если есть префикс, ищем модели, начинающиеся с него
     query = `
@@ -469,9 +506,8 @@ export async function suggestModels(make: string, modelPrefix: string, limit: nu
       WHERE LOWER(make) = LOWER($1)
         AND LOWER(model) LIKE LOWER($2) || '%'
       ORDER BY model
-      LIMIT $3
     `;
-    params = [make, modelPrefix, limit];
+    params = [make, modelPrefix];
   }
   
   const result = await pool.query<{ model: string }>(query, params);

@@ -44,10 +44,13 @@
 <body>
   <h1>Buscador de filtros (Argentina)</h1>
   <div class="row">
-    <input id="make" placeholder="Marca (ej: Peugeot)" />
+    <div class="model-input-wrapper">
+      <input id="make" placeholder="Marca (ej: Peugeot)" autocomplete="off" />
+      <div id="make-suggestions" class="suggestions-dropdown"></div>
+    </div>
     <div class="model-input-wrapper">
       <input id="model" placeholder="Modelo (ej: 208)" autocomplete="off" />
-      <div id="suggestions" class="suggestions-dropdown"></div>
+      <div id="model-suggestions" class="suggestions-dropdown"></div>
     </div>
     <input id="year" type="number" placeholder="Año (ej: 2019)" />
     <select id="lang">
@@ -67,12 +70,46 @@
     
     let currentQuery = {};
     let suggestionTimeout = null;
+    let makeSuggestionTimeout = null;
+    
+    // Автокомплит для марок
+    async function loadMakeSuggestions() {
+      const make = $('#make').value.trim();
+      const suggestionsDiv = $('#make-suggestions');
+      
+      try {
+        const resp = await fetch(api(`/api/suggest-makes?makePrefix=${encodeURIComponent(make)}&limit=100`));
+        const data = await resp.json();
+        
+        if (data.suggestions && data.suggestions.length > 0) {
+          suggestionsDiv.innerHTML = '';
+          data.suggestions.forEach(suggestion => {
+            const item = document.createElement('div');
+            item.className = 'suggestion-item';
+            item.textContent = suggestion;
+            item.onclick = () => {
+              $('#make').value = suggestion;
+              suggestionsDiv.classList.remove('show');
+              // Перезагружаем предложения моделей после выбора марки
+              loadModelSuggestions();
+            };
+            suggestionsDiv.appendChild(item);
+          });
+          suggestionsDiv.classList.add('show');
+        } else {
+          suggestionsDiv.classList.remove('show');
+        }
+      } catch (e) {
+        console.error('Error loading make suggestions:', e);
+        suggestionsDiv.classList.remove('show');
+      }
+    }
     
     // Автокомплит для моделей
-    async function loadSuggestions() {
+    async function loadModelSuggestions() {
       const make = $('#make').value.trim();
       const model = $('#model').value.trim();
-      const suggestionsDiv = $('#suggestions');
+      const suggestionsDiv = $('#model-suggestions');
       
       // Если марка не указана, скрываем предложения
       if (!make) {
@@ -81,7 +118,7 @@
       }
       
       try {
-        const resp = await fetch(api(`/api/suggest-models?make=${encodeURIComponent(make)}&modelPrefix=${encodeURIComponent(model)}&limit=10`));
+        const resp = await fetch(api(`/api/suggest-models?make=${encodeURIComponent(make)}&modelPrefix=${encodeURIComponent(model)}`));
         const data = await resp.json();
         
         if (data.suggestions && data.suggestions.length > 0) {
@@ -101,10 +138,21 @@
           suggestionsDiv.classList.remove('show');
         }
       } catch (e) {
-        console.error('Error loading suggestions:', e);
+        console.error('Error loading model suggestions:', e);
         suggestionsDiv.classList.remove('show');
       }
     }
+    
+    // Обработчик ввода в поле марки
+    $('#make').addEventListener('input', () => {
+      // Задержка перед запросом (debounce)
+      if (makeSuggestionTimeout) {
+        clearTimeout(makeSuggestionTimeout);
+      }
+      makeSuggestionTimeout = setTimeout(() => {
+        loadMakeSuggestions();
+      }, 300);
+    });
     
     // Обработчик ввода в поле модели
     $('#model').addEventListener('input', () => {
@@ -113,46 +161,55 @@
         clearTimeout(suggestionTimeout);
       }
       suggestionTimeout = setTimeout(() => {
-        loadSuggestions();
-      }, 300);
-    });
-    
-    // Обработчик ввода в поле марки - перезагружаем предложения
-    $('#make').addEventListener('input', () => {
-      if (suggestionTimeout) {
-        clearTimeout(suggestionTimeout);
-      }
-      suggestionTimeout = setTimeout(() => {
-        loadSuggestions();
+        loadModelSuggestions();
       }, 300);
     });
     
     // Скрываем предложения при клике вне области
     document.addEventListener('click', (e) => {
-      const wrapper = document.querySelector('.model-input-wrapper');
-      if (wrapper && !wrapper.contains(e.target)) {
-        $('#suggestions').classList.remove('show');
+      const wrappers = document.querySelectorAll('.model-input-wrapper');
+      let clickedInside = false;
+      wrappers.forEach(wrapper => {
+        if (wrapper.contains(e.target)) {
+          clickedInside = true;
+        }
+      });
+      if (!clickedInside) {
+        $('#make-suggestions').classList.remove('show');
+        $('#model-suggestions').classList.remove('show');
       }
+    });
+    
+    // Показываем предложения при фокусе на поле марки
+    $('#make').addEventListener('focus', () => {
+      loadMakeSuggestions();
     });
     
     // Показываем предложения при фокусе на поле модели
     $('#model').addEventListener('focus', () => {
       const make = $('#make').value.trim();
       if (make) {
-        loadSuggestions();
+        loadModelSuggestions();
       }
     });
     
     // Скрываем предложения при нажатии Enter
+    $('#make').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        $('#make-suggestions').classList.remove('show');
+      }
+    });
+    
     $('#model').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
-        $('#suggestions').classList.remove('show');
+        $('#model-suggestions').classList.remove('show');
       }
     });
     
     async function run(hints = {}) {
       // Скрываем предложения при поиске
-      $('#suggestions').classList.remove('show');
+      $('#make-suggestions').classList.remove('show');
+      $('#model-suggestions').classList.remove('show');
       const make = $('#make').value.trim();
       const model = $('#model').value.trim();
       const year = Number($('#year').value);
