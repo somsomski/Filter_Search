@@ -14,6 +14,9 @@ type Row = {
   ac: boolean | null;
   engine_series: string | null;
   engine_desc_raw: string | null;
+  generation: string | null;
+  platform: string | null;
+  series_suffix: string | null;
   filter_type: FilterType;
   brand_src: string;
   part_number: string;
@@ -23,6 +26,21 @@ type Row = {
 };
 
 const FILTERS: FilterType[] = ['oil','air','cabin','fuel'];
+
+// Приоритеты полей для дизамбигурации (чем меньше число, тем выше приоритет)
+// При прочих равных выбирается поле с более высоким приоритетом
+const FIELD_PRIORITY: Record<string, number> = {
+  'fuel': 1,
+  'generation': 2,
+  'series_suffix': 3,
+  'displacement_l': 4,
+  'platform': 5,
+  'power_hp': 6,
+  'engine_code': 7,
+  'engine_series': 8,
+  'body': 9,
+  'ac': 10
+};
 
 function toNumberOrNull(value: number | string | null | undefined): number | null {
   if (value == null) return null;
@@ -135,9 +153,32 @@ function score(
  * Возвращает максимальное количество записей, которое останется после выбора любого значения
  * Чем меньше это число, тем эффективнее поле для дизамбигурации
  */
+/**
+ * Извлекает series_suffix из engine_series
+ * Если engine_series содержит "|", берем части после "|"
+ * Иначе пытаемся извлечь суффикс (последний токен или числовую часть)
+ */
+function extractSeriesSuffix(engineSeries: string | null): string[] {
+  if (!engineSeries) return [];
+  
+  // Если есть разделитель "|", берем все части после первой
+  if (engineSeries.includes('|')) {
+    const parts = engineSeries.split('|').map(s => s.trim()).filter(s => s.length > 0);
+    return parts.slice(1); // Пропускаем первую часть
+  }
+  
+  // Иначе пытаемся извлечь суффикс (последний токен)
+  const tokens = engineSeries.split(/[\s\-_\/]+/).filter(t => t.length > 0);
+  if (tokens.length > 1) {
+    return [tokens[tokens.length - 1]]; // Последний токен как суффикс
+  }
+  
+  return [];
+}
+
 function calculateFieldEfficiency(
   rows: Row[],
-  field: 'fuel' | 'ac' | 'displacement_l' | 'engine_series' | 'engine_code' | 'body' | 'power_hp',
+  field: 'fuel' | 'ac' | 'displacement_l' | 'engine_series' | 'engine_code' | 'body' | 'power_hp' | 'generation' | 'series_suffix' | 'platform',
   engineSeriesGroups?: Map<string, string[]>
 ): { maxRemaining: number; options: (string | number | boolean)[]; affectsResult: boolean } {
   const valueCounts = new Map<string | number | boolean, number>();
@@ -171,6 +212,22 @@ function calculateFieldEfficiency(
       value = r.body;
     } else if (field === 'power_hp') {
       value = r.power_hp;
+    } else if (field === 'generation') {
+      value = r.generation;
+    } else if (field === 'series_suffix') {
+      // Используем поле series_suffix из БД, если оно есть
+      // Иначе извлекаем из engine_series
+      if (r.series_suffix) {
+        value = r.series_suffix;
+      } else if (r.engine_series) {
+        const suffixes = extractSeriesSuffix(r.engine_series);
+        for (const suffix of suffixes) {
+          valueCounts.set(suffix, (valueCounts.get(suffix) || 0) + 1);
+        }
+        continue; // Уже обработали суффиксы
+      }
+    } else if (field === 'platform') {
+      value = r.platform;
     }
     
     if (value != null) {
@@ -213,6 +270,20 @@ function calculateFieldEfficiency(
         value = r.body;
       } else if (field === 'power_hp') {
         value = r.power_hp;
+      } else if (field === 'generation') {
+        value = r.generation;
+      } else if (field === 'series_suffix') {
+        if (r.series_suffix) {
+          value = r.series_suffix;
+        } else if (r.engine_series) {
+          const suffixes = extractSeriesSuffix(r.engine_series);
+          for (const suffix of suffixes) {
+            groupsByPart.get(key)!.add(suffix);
+          }
+          continue;
+        }
+      } else if (field === 'platform') {
+        value = r.platform;
       }
       
       if (value != null) {
@@ -281,6 +352,19 @@ function inferDisambiguation(rows: Row[], hints: LookupInput['hints'], engineSer
     if (hints?.body && r.body && r.body !== hints.body) return false;
     if (hints?.power_hp != null && r.power_hp != null && r.power_hp !== hints.power_hp) return false;
     
+    // Проверяем series_suffix (используем поле из БД или извлекаем из engine_series)
+    if (hints?.series_suffix) {
+      if (r.series_suffix && r.series_suffix !== hints.series_suffix) return false;
+      if (!r.series_suffix && r.engine_series) {
+        const suffixes = extractSeriesSuffix(r.engine_series);
+        if (suffixes.length > 0 && !suffixes.includes(hints.series_suffix)) return false;
+      }
+    }
+    
+    // Проверяем generation и platform
+    if (hints?.generation && r.generation && r.generation !== hints.generation) return false;
+    if (hints?.platform && r.platform && r.platform !== hints.platform) return false;
+    
     return true;
   });
   
@@ -289,7 +373,7 @@ function inferDisambiguation(rows: Row[], hints: LookupInput['hints'], engineSer
   
   // Вычисляем эффективность каждого поля для дизамбигурации
   const candidates: Array<{
-    field: 'fuel' | 'ac' | 'displacement_l' | 'engine_series' | 'engine_code' | 'body' | 'power_hp';
+    field: 'fuel' | 'ac' | 'displacement_l' | 'engine_series' | 'engine_code' | 'body' | 'power_hp' | 'generation' | 'series_suffix' | 'platform';
     efficiency: { maxRemaining: number; options: (string | number | boolean)[]; affectsResult: boolean };
   }> = [];
   
@@ -303,10 +387,17 @@ function inferDisambiguation(rows: Row[], hints: LookupInput['hints'], engineSer
     }
   }
   
-  if (typeof hints?.ac !== 'boolean') {
-    const eff = calculateFieldEfficiency(working, 'ac', localEngineSeriesGroups);
+  if (!hints?.generation) {
+    const eff = calculateFieldEfficiency(working, 'generation', localEngineSeriesGroups);
     if (eff.affectsResult && eff.options.length > 1) {
-      candidates.push({ field: 'ac', efficiency: eff });
+      candidates.push({ field: 'generation', efficiency: eff });
+    }
+  }
+  
+  if (!hints?.series_suffix) {
+    const eff = calculateFieldEfficiency(working, 'series_suffix', localEngineSeriesGroups);
+    if (eff.affectsResult && eff.options.length > 1) {
+      candidates.push({ field: 'series_suffix', efficiency: eff });
     }
   }
   
@@ -314,6 +405,20 @@ function inferDisambiguation(rows: Row[], hints: LookupInput['hints'], engineSer
     const eff = calculateFieldEfficiency(working, 'displacement_l', localEngineSeriesGroups);
     if (eff.affectsResult && eff.options.length > 1) {
       candidates.push({ field: 'displacement_l', efficiency: eff });
+    }
+  }
+  
+  if (!hints?.platform) {
+    const eff = calculateFieldEfficiency(working, 'platform', localEngineSeriesGroups);
+    if (eff.affectsResult && eff.options.length > 1) {
+      candidates.push({ field: 'platform', efficiency: eff });
+    }
+  }
+  
+  if (typeof hints?.ac !== 'boolean') {
+    const eff = calculateFieldEfficiency(working, 'ac', localEngineSeriesGroups);
+    if (eff.affectsResult && eff.options.length > 1) {
+      candidates.push({ field: 'ac', efficiency: eff });
     }
   }
   
@@ -347,8 +452,18 @@ function inferDisambiguation(rows: Row[], hints: LookupInput['hints'], engineSer
   }
   
   // Выбираем поле с наименьшим maxRemaining (быстрее всего приведет к однозначному результату)
+  // При одинаковом maxRemaining выбираем поле с более высоким приоритетом
   if (candidates.length > 0) {
-    candidates.sort((a, b) => a.efficiency.maxRemaining - b.efficiency.maxRemaining);
+    candidates.sort((a, b) => {
+      // Сначала по maxRemaining
+      if (a.efficiency.maxRemaining !== b.efficiency.maxRemaining) {
+        return a.efficiency.maxRemaining - b.efficiency.maxRemaining;
+      }
+      // При одинаковом maxRemaining - по приоритету
+      const priorityA = FIELD_PRIORITY[a.field] || 999;
+      const priorityB = FIELD_PRIORITY[b.field] || 999;
+      return priorityA - priorityB;
+    });
     const best = candidates[0];
     
     // Проверяем, что опции не пустые
@@ -359,18 +474,24 @@ function inferDisambiguation(rows: Row[], hints: LookupInput['hints'], engineSer
     let reason = '';
     if (best.field === 'fuel') {
       reason = 'Hay variantes por combustible.';
-    } else if (best.field === 'ac') {
-      reason = 'Hay variantes por tipo de media de cabina.';
+    } else if (best.field === 'generation') {
+      reason = 'Hay variantes por generación.';
+    } else if (best.field === 'series_suffix') {
+      reason = 'Hay variantes por sufijo de serie.';
     } else if (best.field === 'displacement_l') {
       reason = 'Hay variantes por cilindrada.';
-    } else if (best.field === 'engine_series') {
-      reason = 'Hay variantes por serie de motor.';
-    } else if (best.field === 'engine_code') {
-      reason = 'Hay variantes por código de motor.';
-    } else if (best.field === 'body') {
-      reason = 'Hay variantes por tipo de carrocería.';
+    } else if (best.field === 'platform') {
+      reason = 'Hay variantes por plataforma.';
     } else if (best.field === 'power_hp') {
       reason = 'Hay variantes por potencia.';
+    } else if (best.field === 'engine_code') {
+      reason = 'Hay variantes por código de motor.';
+    } else if (best.field === 'engine_series') {
+      reason = 'Hay variantes por serie de motor.';
+    } else if (best.field === 'body') {
+      reason = 'Hay variantes por tipo de carrocería.';
+    } else if (best.field === 'ac') {
+      reason = 'Hay variantes por tipo de media de cabina.';
     }
     
     ask.push({
@@ -632,7 +753,8 @@ export async function lookup(input: LookupInput): Promise<LookupOutput> {
   const result = await pool.query<Row>(
     `
     SELECT make, model, year_from, year_to, engine_code, fuel, displacement_l, power_hp, body, ac,
-           engine_series, engine_desc_raw, filter_type, brand_src, part_number, catalog_year, page, notes
+           engine_series, engine_desc_raw, generation, platform, series_suffix,
+           filter_type, brand_src, part_number, catalog_year, page, notes
     FROM catalog_hit
     WHERE LOWER(make) = LOWER($1)
       AND LOWER(model) = LOWER($2)
@@ -691,6 +813,25 @@ export async function lookup(input: LookupInput): Promise<LookupOutput> {
       }
       if (!matched) return false;
     }
+    
+    // Проверяем другие поля
+    if (hints.engine_code && r.engine_code && r.engine_code !== hints.engine_code) return false;
+    if (hints.body && r.body && r.body !== hints.body) return false;
+    if (hints.power_hp != null && r.power_hp != null && r.power_hp !== hints.power_hp) return false;
+    
+    // Проверяем series_suffix (используем поле из БД или извлекаем из engine_series)
+    if (hints.series_suffix) {
+      if (r.series_suffix && r.series_suffix !== hints.series_suffix) return false;
+      if (!r.series_suffix && r.engine_series) {
+        const suffixes = extractSeriesSuffix(r.engine_series);
+        if (suffixes.length > 0 && !suffixes.includes(hints.series_suffix)) return false;
+      }
+    }
+    
+    // Проверяем generation и platform
+    if (hints.generation && r.generation && r.generation !== hints.generation) return false;
+    if (hints.platform && r.platform && r.platform !== hints.platform) return false;
+    
     return true;
   });
   const working = filtered.length > 0 ? filtered : rows;
@@ -863,20 +1004,26 @@ export async function lookup(input: LookupInput): Promise<LookupOutput> {
           ask,
           fallback_texts: {
             'es-AR': ask[0]?.field === 'fuel' ? '¿Nafta o diésel?' :
-                     ask[0]?.field === 'ac'   ? '¿Filtro de cabina: estándar (CU) o carbón activo/bio (CUK/FP)?' :
+                     ask[0]?.field === 'generation' ? '¿Generación?' :
+                     ask[0]?.field === 'series_suffix' ? '¿Sufijo de serie?' :
                      ask[0]?.field === 'displacement_l' ? 'Decime la cilindrada (ej: 1.6).' :
-                     ask[0]?.field === 'engine_series' ? '¿Serie del motor? (ej.: TBI 16V)' :
-                     ask[0]?.field === 'engine_code' ? '¿Código del motor?' :
-                     ask[0]?.field === 'body' ? '¿Tipo de carrocería?' :
+                     ask[0]?.field === 'platform' ? '¿Plataforma?' :
                      ask[0]?.field === 'power_hp' ? '¿Potencia (HP)?' :
+                     ask[0]?.field === 'engine_code' ? '¿Código del motor?' :
+                     ask[0]?.field === 'engine_series' ? '¿Serie del motor? (ej.: TBI 16V)' :
+                     ask[0]?.field === 'body' ? '¿Tipo de carrocería?' :
+                     ask[0]?.field === 'ac'   ? '¿Filtro de cabina: estándar (CU) o carbón activo/bio (CUK/FP)?' :
                      'Falta un dato',
             'ru':    ask[0]?.field === 'fuel' ? 'Nafta или diesel?' :
-                     ask[0]?.field === 'ac'   ? 'Салонный фильтр: стандарт (CU) или уголь/био (CUK/FP)?' :
+                     ask[0]?.field === 'generation' ? 'Поколение?' :
+                     ask[0]?.field === 'series_suffix' ? 'Суффикс серии?' :
                      ask[0]?.field === 'displacement_l' ? 'Уточни объем двигателя (например, 1.6).' :
-                     ask[0]?.field === 'engine_series' ? 'Серия двигателя? (например, TBI 16V)' :
-                     ask[0]?.field === 'engine_code' ? 'Код двигателя?' :
-                     ask[0]?.field === 'body' ? 'Тип кузова?' :
+                     ask[0]?.field === 'platform' ? 'Платформа?' :
                      ask[0]?.field === 'power_hp' ? 'Мощность (л.с.)?' :
+                     ask[0]?.field === 'engine_code' ? 'Код двигателя?' :
+                     ask[0]?.field === 'engine_series' ? 'Серия двигателя? (например, TBI 16V)' :
+                     ask[0]?.field === 'body' ? 'Тип кузова?' :
+                     ask[0]?.field === 'ac'   ? 'Салонный фильтр: стандарт (CU) или уголь/био (CUK/FP)?' :
                      'Нужен уточняющий пункт'
           }
         }

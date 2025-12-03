@@ -12,6 +12,9 @@ export interface LookupInput {
     engine_code?: string|null;
     body?: string|null;
     power_hp?: number|null;
+    generation?: string|null;
+    series_suffix?: string|null;
+    platform?: string|null;
   };
   lang?: 'es-AR'|'ru';
 }
@@ -31,7 +34,7 @@ export interface PartHit {
 }
 
 export interface DisambQuestion {
-  field: 'fuel'|'ac'|'displacement_l'|'engine_series'|'engine_code'|'body'|'power_hp';
+  field: 'fuel'|'ac'|'displacement_l'|'engine_series'|'engine_code'|'body'|'power_hp'|'generation'|'series_suffix'|'platform';
   options?: (string|number|boolean)[];
   reason: string;
 }
