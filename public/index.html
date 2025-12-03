@@ -39,6 +39,31 @@
     }
     .suggestion-item:hover { background:#f5f5f5; }
     .suggestion-item:last-child { border-bottom:none; }
+    .xref-toggle { 
+      cursor: pointer; 
+      color: #2196f3; 
+      text-decoration: underline; 
+      font-size: 14px;
+      margin-top: 6px;
+      display: inline-block;
+    }
+    .xref-content { 
+      display: none; 
+      margin-top: 6px; 
+      padding: 8px; 
+      background: #f5f5f5; 
+      border-radius: 4px; 
+    }
+    .xref-content.show { display: block; }
+    .disclaimer {
+      margin-top: 20px;
+      padding: 12px;
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #856404;
+    }
   </style>
 </head>
 <body>
@@ -53,16 +78,15 @@
       <div id="model-suggestions" class="suggestions-dropdown"></div>
     </div>
     <input id="year" type="number" placeholder="Año (ej: 2019)" />
-    <select id="lang">
-      <option value="es-AR" selected>es-AR</option>
-      <option value="ru">ru</option>
-    </select>
     <button id="btn">Buscar</button>
   </div>
 
   <div id="ask" class="card" style="display:none"></div>
   <div id="hints" class="card" style="display:none"></div>
   <div id="out"></div>
+  <div class="disclaimer">
+    Todos los datos sobre filtros y sus análogos provienen de catálogos de fabricantes, tienen carácter informativo, no se garantiza su exactitud y la responsabilidad por el uso recae en el usuario.
+  </div>
 
   <script>
     const $ = (s)=>document.querySelector(s);
@@ -213,7 +237,7 @@
       const make = $('#make').value.trim();
       const model = $('#model').value.trim();
       const year = Number($('#year').value);
-      const lang = $('#lang').value;
+      const lang = 'es-AR';
       
       currentQuery = { make, model, year, lang, hints };
       
@@ -231,9 +255,7 @@
       if (data.disambiguation?.needed) {
         ask.style.display = 'block';
         const q = data.disambiguation.ask?.[0];
-        const txt = (lang==='ru')
-          ? (data.disambiguation.fallback_texts?.['ru'] || 'Нужен уточняющий пункт')
-          : (data.disambiguation.fallback_texts?.['es-AR'] || 'Falta un dato');
+        const txt = data.disambiguation.fallback_texts?.['es-AR'] || 'Falta un dato';
         
         let askHTML = `<b>⚠️ ${txt}</b><br/><small>${q?.reason || ''}</small><br/>`;
         
@@ -281,7 +303,7 @@
       
       if (hints && Object.keys(hints).length > 0) {
         hintsDiv.style.display = 'block';
-        let hintsHTML = '<b>Active filters / Активные фильтры:</b><br/>';
+        let hintsHTML = '<b>Filtros activos:</b><br/>';
         
         if (hints.fuel) {
           hintsHTML += `<span class="chip" onclick="clearHint('fuel')">fuel: ${hints.fuel}</span>`;
@@ -328,9 +350,13 @@
         // Сортируем производителей по алфавиту
         const sortedProducers = Array.from(groups.keys()).sort();
         
-        // Форматируем вывод
-        let html = '<br/><div style="margin-top:6px; padding:8px; background:#f5f5f5; border-radius:4px;">';
-        html += '<small style="color:#666; font-weight:bold;">🔗 Аналоги / Cross-references:</small><br/>';
+        // Генерируем уникальный ID для этого xref
+        const xrefId = 'xref-' + Math.random().toString(36).substr(2, 9);
+        
+        // Форматируем вывод с выпадающим списком
+        let html = '<br/><div style="margin-top:6px;">';
+        html += `<span class="xref-toggle" onclick="toggleXref('${xrefId}')">🔗 Ver referencias cruzadas</span>`;
+        html += `<div id="${xrefId}" class="xref-content">`;
         
         for (const producer of sortedProducers) {
           const partNums = groups.get(producer);
@@ -340,16 +366,23 @@
           html += `</div>`;
         }
         
-        html += '</div>';
+        html += '</div></div>';
         return html;
       }
+      
+      window.toggleXref = function(xrefId) {
+        const content = document.getElementById(xrefId);
+        if (content) {
+          content.classList.toggle('show');
+        }
+      };
       
       function section(title, items) {
         const div = document.createElement('div'); 
         div.className='card';
         
         if (!items || !items.length) {
-          div.innerHTML = `<h2>${title}</h2><div class="empty-section">— No entries / Нет позиций —</div>`;
+          div.innerHTML = `<h2>${title}</h2><div class="empty-section">— Sin entradas —</div>`;
         } else {
           div.innerHTML = `<h2>${title}</h2>` + items.map(it => {
             const srcs = (it.sources||[]).map(s=>`${s.catalog} p.${s.page}`).join(', ');
@@ -376,10 +409,10 @@
         out.appendChild(div);
       }
       
-      section('Aceite / Масляный', data.results?.oil);
-      section('Aire / Воздушный', data.results?.air);
-      section('Cabina / Салонный', data.results?.cabin);
-      section('Combustible / Топливный', data.results?.fuel);
+      section('Aceite', data.results?.oil);
+      section('Aire', data.results?.air);
+      section('Cabina', data.results?.cabin);
+      section('Combustible', data.results?.fuel);
       
       // Автоскролл к результатам после ответа на дизамбигуацию
       if (hints && Object.keys(hints).length > 0) {
