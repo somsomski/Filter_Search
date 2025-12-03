@@ -431,11 +431,47 @@
           askHTML += '<div>';
           if (q.options && q.options.length > 0) {
             q.options.forEach(option => {
-              askHTML += `<button onclick="answerEngineSeries('${option}')">${option}</button>`;
+              const escapedOption = String(option).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+              askHTML += `<button onclick="answerEngineSeries('${escapedOption}')">${String(option)}</button>`;
             });
           } else {
             askHTML += '<input id="engineSeriesInput" placeholder="ej: TBI 16V" style="margin-right:8px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"/>';
             askHTML += '<button onclick="answerEngineSeries()">Confirmar</button>';
+          }
+          askHTML += '</div>';
+        } else if (q?.field === 'power_hp') {
+          askHTML += '<div>';
+          if (q.options && q.options.length > 0) {
+            q.options.forEach(option => {
+              askHTML += `<button onclick="answerPowerHp(${option})">${option} HP</button>`;
+            });
+          } else {
+            askHTML += '<input id="powerHpInput" type="number" placeholder="ej: 115" style="margin-right:8px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"/>';
+            askHTML += '<button onclick="answerPowerHp()">Confirmar</button>';
+          }
+          askHTML += '</div>';
+        } else if (q?.field === 'engine_code') {
+          askHTML += '<div>';
+          if (q.options && q.options.length > 0) {
+            q.options.forEach(option => {
+              const escapedOption = String(option).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+              askHTML += `<button onclick="answerEngineCode('${escapedOption}')">${String(option)}</button>`;
+            });
+          } else {
+            askHTML += '<input id="engineCodeInput" placeholder="ej: EC5" style="margin-right:8px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"/>';
+            askHTML += '<button onclick="answerEngineCode()">Confirmar</button>';
+          }
+          askHTML += '</div>';
+        } else if (q?.field === 'body') {
+          askHTML += '<div>';
+          if (q.options && q.options.length > 0) {
+            q.options.forEach(option => {
+              const escapedOption = String(option).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+              askHTML += `<button onclick="answerBody('${escapedOption}')">${String(option)}</button>`;
+            });
+          } else {
+            askHTML += '<input id="bodyInput" placeholder="ej: HB" style="margin-right:8px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"/>';
+            askHTML += '<button onclick="answerBody()">Confirmar</button>';
           }
           askHTML += '</div>';
         }
@@ -464,6 +500,15 @@
         }
         if (hints.engine_series) {
           hintsHTML += `<span class="chip" onclick="clearHint('engine_series')">Serie motor: ${hints.engine_series}</span>`;
+        }
+        if (hints.power_hp) {
+          hintsHTML += `<span class="chip" onclick="clearHint('power_hp')">Potencia: ${hints.power_hp} HP</span>`;
+        }
+        if (hints.engine_code) {
+          hintsHTML += `<span class="chip" onclick="clearHint('engine_code')">Código motor: ${hints.engine_code}</span>`;
+        }
+        if (hints.body) {
+          hintsHTML += `<span class="chip" onclick="clearHint('body')">Carrocería: ${hints.body}</span>`;
         }
         
         hintsHTML += '</div>';
@@ -600,6 +645,39 @@
         const inputSeries = $('#engineSeriesInput').value.trim();
         if (inputSeries) {
           run({ ...currentQuery.hints, engine_series: inputSeries });
+        }
+      }
+    }
+    
+    function answerPowerHp(powerHp) {
+      if (powerHp !== undefined) {
+        run({ ...currentQuery.hints, power_hp: powerHp });
+      } else {
+        const powerHpValue = Number($('#powerHpInput').value);
+        if (powerHpValue && powerHpValue > 0) {
+          run({ ...currentQuery.hints, power_hp: powerHpValue });
+        }
+      }
+    }
+    
+    function answerEngineCode(engineCode) {
+      if (engineCode) {
+        run({ ...currentQuery.hints, engine_code: engineCode });
+      } else {
+        const inputCode = $('#engineCodeInput').value.trim();
+        if (inputCode) {
+          run({ ...currentQuery.hints, engine_code: inputCode });
+        }
+      }
+    }
+    
+    function answerBody(body) {
+      if (body) {
+        run({ ...currentQuery.hints, body: body });
+      } else {
+        const inputBody = $('#bodyInput').value.trim();
+        if (inputBody) {
+          run({ ...currentQuery.hints, body: inputBody });
         }
       }
     }

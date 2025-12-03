@@ -192,7 +192,10 @@ function calculateFieldEfficiency(rows, field, engineSeriesGroups) {
     }
     // Максимальное количество записей, которое останется после выбора любого значения
     const maxRemaining = valueCounts.size > 0 ? Math.max(...Array.from(valueCounts.values())) : rows.length;
-    const options = Array.from(valueCounts.keys()).sort((a, b) => {
+    // Фильтруем null, undefined и пустые строки, затем сортируем
+    const options = Array.from(valueCounts.keys())
+        .filter(v => v != null && v !== '' && v !== 'null' && v !== 'undefined')
+        .sort((a, b) => {
         if (typeof a === 'number' && typeof b === 'number')
             return a - b;
         return String(a).localeCompare(String(b));
@@ -298,6 +301,10 @@ function inferDisambiguation(rows, hints, engineSeriesGroups) {
     if (candidates.length > 0) {
         candidates.sort((a, b) => a.efficiency.maxRemaining - b.efficiency.maxRemaining);
         const best = candidates[0];
+        // Проверяем, что опции не пустые
+        if (best.efficiency.options.length === 0) {
+            return ask; // Не добавляем вопрос без опций
+        }
         let reason = '';
         if (best.field === 'fuel') {
             reason = 'Hay variantes por combustible.';
