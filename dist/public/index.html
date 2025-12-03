@@ -208,6 +208,180 @@
       background: #f0f7ff;
       border-left: 3px solid #4a90e2;
     }
+    
+    .ask-card > div {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    
+    /* Адаптивная верстка */
+    @media (max-width: 768px) {
+      body {
+        padding: 16px;
+      }
+      
+      h1 {
+        font-size: 24px;
+        margin-bottom: 20px;
+      }
+      
+      .search-form {
+        flex-direction: column;
+        gap: 10px;
+      }
+      
+      .model-input-wrapper {
+        width: 100%;
+        min-width: unset;
+      }
+      
+      input {
+        width: 100%;
+        min-width: unset;
+      }
+      
+      input#year {
+        width: 100%;
+      }
+      
+      button {
+        width: 100%;
+        padding: 14px;
+      }
+      
+      .card {
+        padding: 16px;
+        margin-bottom: 12px;
+      }
+      
+      h2 {
+        font-size: 18px;
+        margin-bottom: 12px;
+      }
+      
+      .part-number {
+        font-size: 16px;
+        word-break: break-word;
+      }
+      
+      .confidence {
+        display: block;
+        margin-left: 0;
+        margin-top: 4px;
+      }
+      
+      .result-item {
+        padding: 12px 0;
+      }
+      
+      .chip {
+        font-size: 12px;
+        padding: 5px 10px;
+        margin: 3px 3px 3px 0;
+      }
+      
+      .ask-card > div {
+        flex-direction: column;
+        gap: 10px;
+      }
+      
+      .ask-card button,
+      .hints-card button {
+        width: 100%;
+        margin: 0;
+        padding: 12px;
+      }
+      
+      .ask-card input,
+      .hints-card input {
+        width: 100%;
+        margin: 0 0 8px 0;
+      }
+      
+      .ask-card > div > button:last-child {
+        margin-top: 0;
+      }
+      
+      .disclaimer {
+        margin-top: 24px;
+        padding: 12px;
+        font-size: 11px;
+      }
+      
+      .xref-content {
+        padding: 10px;
+        font-size: 12px;
+      }
+      
+      .suggestions-dropdown {
+        max-height: 180px;
+      }
+      
+      .suggestion-item {
+        padding: 12px 14px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      body {
+        padding: 12px;
+      }
+      
+      h1 {
+        font-size: 22px;
+        margin-bottom: 16px;
+      }
+      
+      .card {
+        padding: 14px;
+        border-radius: 6px;
+      }
+      
+      h2 {
+        font-size: 16px;
+      }
+      
+      .part-number {
+        font-size: 15px;
+      }
+      
+      .sources {
+        font-size: 12px;
+      }
+      
+      .notes {
+        font-size: 13px;
+      }
+      
+      .empty-section {
+        padding: 30px 15px;
+        font-size: 13px;
+      }
+      
+      .ask-card > div {
+        gap: 8px;
+      }
+      
+      .ask-card button {
+        padding: 14px;
+        font-size: 14px;
+      }
+    }
+    
+    @media (min-width: 769px) and (max-width: 1024px) {
+      body {
+        padding: 20px;
+      }
+      
+      .search-form {
+        gap: 10px;
+      }
+      
+      input#year {
+        width: 120px;
+      }
+    }
   </style>
 </head>
 <body>
