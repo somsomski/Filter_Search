@@ -5,84 +5,228 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Filtro Lookup (AR)</title>
   <style>
-    body { font-family: system-ui, Arial, sans-serif; margin: 20px; }
-    .row { display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
-    input, select, button { padding:8px; font-size:16px; }
-    .card { border:1px solid #ddd; border-radius:10px; padding:12px; margin:10px 0; }
-    h2 { margin: 12px 0 6px; }
-    small { color:#666; }
-    .chip { display:inline-block; background:#e3f2fd; border:1px solid #2196f3; border-radius:16px; padding:4px 12px; margin:2px; font-size:14px; cursor:pointer; }
-    .chip:hover { background:#bbdefb; }
-    .chip::after { content: ' ×'; color:#666; margin-left:4px; }
-    .empty-section { color:#999; font-style:italic; text-align:center; padding:20px; }
-    .model-input-wrapper { position:relative; display:inline-block; }
+    * { box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; 
+      margin: 0;
+      padding: 24px;
+      background: #fafafa;
+      color: #333;
+      line-height: 1.6;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 { 
+      font-size: 28px; 
+      font-weight: 600; 
+      margin: 0 0 24px 0;
+      color: #1a1a1a;
+    }
+    .search-form { 
+      display: flex; 
+      gap: 12px; 
+      margin-bottom: 24px; 
+      flex-wrap: wrap;
+    }
+    input, button { 
+      padding: 12px 16px; 
+      font-size: 15px; 
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-family: inherit;
+    }
+    input {
+      flex: 1;
+      min-width: 150px;
+      background: white;
+    }
+    input:focus {
+      outline: none;
+      border-color: #4a90e2;
+    }
+    button { 
+      background: #4a90e2;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: 500;
+      padding: 12px 24px;
+      transition: background 0.2s;
+    }
+    button:hover { background: #357abd; }
+    button:active { background: #2a5f8f; }
+    .card { 
+      background: white;
+      border: 1px solid #e0e0e0; 
+      border-radius: 8px; 
+      padding: 20px; 
+      margin-bottom: 16px;
+    }
+    h2 { 
+      font-size: 20px;
+      font-weight: 600;
+      margin: 0 0 16px 0;
+      color: #1a1a1a;
+    }
+    .result-item {
+      padding: 16px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .result-item:last-child {
+      border-bottom: none;
+    }
+    .result-item:first-child {
+      padding-top: 0;
+    }
+    .part-number {
+      font-size: 17px;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-bottom: 8px;
+    }
+    .confidence {
+      display: inline-block;
+      font-size: 13px;
+      color: #666;
+      margin-left: 8px;
+      font-weight: normal;
+    }
+    .sources {
+      font-size: 13px;
+      color: #888;
+      margin: 8px 0;
+    }
+    .notes {
+      margin-top: 8px;
+      font-size: 14px;
+      color: #666;
+    }
+    .notes small {
+      display: block;
+      margin-top: 4px;
+    }
+    .chip { 
+      display: inline-block; 
+      background: #f0f0f0; 
+      border: 1px solid #ddd; 
+      border-radius: 4px; 
+      padding: 6px 12px; 
+      margin: 4px 4px 4px 0; 
+      font-size: 13px; 
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .chip:hover { background: #e0e0e0; }
+    .chip::after { content: ' ×'; color: #999; margin-left: 6px; }
+    .empty-section { 
+      color: #999; 
+      text-align: center; 
+      padding: 40px 20px;
+      font-size: 14px;
+    }
+    .model-input-wrapper { 
+      position: relative; 
+      display: inline-block;
+      flex: 1;
+      min-width: 150px;
+    }
     .suggestions-dropdown { 
-      position:absolute; 
-      top:100%; 
-      left:0; 
-      right:0; 
-      background:white; 
-      border:1px solid #ccc; 
-      border-top:none; 
-      border-radius:0 0 4px 4px; 
-      max-height:200px; 
-      overflow-y:auto; 
-      z-index:1000; 
-      box-shadow:0 4px 6px rgba(0,0,0,0.1);
-      display:none;
+      position: absolute; 
+      top: 100%; 
+      left: 0; 
+      right: 0; 
+      background: white; 
+      border: 1px solid #ddd; 
+      border-top: none; 
+      border-radius: 0 0 6px 6px; 
+      max-height: 200px; 
+      overflow-y: auto; 
+      z-index: 1000; 
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      display: none;
     }
-    .suggestions-dropdown.show { display:block; }
+    .suggestions-dropdown.show { display: block; }
     .suggestion-item { 
-      padding:8px 12px; 
-      cursor:pointer; 
-      border-bottom:1px solid #eee; 
+      padding: 10px 16px; 
+      cursor: pointer; 
+      border-bottom: 1px solid #f5f5f5; 
+      transition: background 0.15s;
     }
-    .suggestion-item:hover { background:#f5f5f5; }
-    .suggestion-item:last-child { border-bottom:none; }
+    .suggestion-item:hover { background: #f8f8f8; }
+    .suggestion-item:last-child { border-bottom: none; }
     .xref-toggle { 
       cursor: pointer; 
-      color: #2196f3; 
-      text-decoration: underline; 
-      font-size: 14px;
-      margin-top: 6px;
+      color: #4a90e2; 
+      text-decoration: none;
+      font-size: 13px;
+      margin-top: 8px;
       display: inline-block;
+    }
+    .xref-toggle:hover {
+      text-decoration: underline;
     }
     .xref-content { 
       display: none; 
-      margin-top: 6px; 
-      padding: 8px; 
-      background: #f5f5f5; 
+      margin-top: 12px; 
+      padding: 12px; 
+      background: #f8f8f8; 
       border-radius: 4px; 
+      font-size: 13px;
     }
     .xref-content.show { display: block; }
+    .xref-producer {
+      margin: 6px 0;
+    }
+    .xref-producer strong {
+      color: #4a90e2;
+      margin-right: 8px;
+    }
     .disclaimer {
-      margin-top: 20px;
-      padding: 12px;
-      background: #fff3cd;
-      border: 1px solid #ffc107;
+      margin-top: 32px;
+      padding: 16px;
+      background: #fff9e6;
+      border-left: 3px solid #ffc107;
       border-radius: 4px;
       font-size: 12px;
       color: #856404;
+      line-height: 1.5;
+    }
+    .ask-card {
+      background: #fff9e6;
+      border-left: 3px solid #ff9800;
+    }
+    .ask-card button {
+      margin: 8px 8px 8px 0;
+      background: white;
+      color: #333;
+      border: 1px solid #ddd;
+    }
+    .ask-card button:hover {
+      background: #f5f5f5;
+    }
+    .hints-card {
+      background: #f0f7ff;
+      border-left: 3px solid #4a90e2;
     }
   </style>
 </head>
 <body>
-  <h1>Buscador de filtros (Argentina)</h1>
-  <div class="row">
+  <h1>Buscador de filtros</h1>
+  <div class="search-form">
     <div class="model-input-wrapper">
-      <input id="make" placeholder="Marca (ej: Peugeot)" autocomplete="off" />
+      <input id="make" placeholder="Marca" autocomplete="off" />
       <div id="make-suggestions" class="suggestions-dropdown"></div>
     </div>
     <div class="model-input-wrapper">
-      <input id="model" placeholder="Modelo (ej: 208)" autocomplete="off" />
+      <input id="model" placeholder="Modelo" autocomplete="off" />
       <div id="model-suggestions" class="suggestions-dropdown"></div>
     </div>
-    <input id="year" type="number" placeholder="Año (ej: 2019)" />
+    <input id="year" type="number" placeholder="Año" style="width: 100px;" />
     <button id="btn">Buscar</button>
   </div>
 
-  <div id="ask" class="card" style="display:none"></div>
-  <div id="hints" class="card" style="display:none"></div>
+  <div id="ask" class="card ask-card" style="display:none"></div>
+  <div id="hints" class="card hints-card" style="display:none"></div>
   <div id="out"></div>
   <div class="disclaimer">
     Todos los datos sobre filtros y sus análogos provienen de catálogos de fabricantes, tienen carácter informativo, no se garantiza su exactitud y la responsabilidad por el uso recae en el usuario.
@@ -257,37 +401,40 @@
         const q = data.disambiguation.ask?.[0];
         const txt = data.disambiguation.fallback_texts?.['es-AR'] || 'Falta un dato';
         
-        let askHTML = `<b>⚠️ ${txt}</b><br/><small>${q?.reason || ''}</small><br/>`;
+        let askHTML = `<div style="margin-bottom: 12px;"><strong>${txt}</strong></div>`;
+        if (q?.reason) {
+          askHTML += `<div style="margin-bottom: 16px; color: #666; font-size: 14px;">${q.reason}</div>`;
+        }
         
         if (q?.field === 'fuel') {
-          askHTML += '<div style="margin-top:10px;">';
-          askHTML += '<button onclick="answerFuel(\'nafta\')" style="margin-right:8px;">Nafta</button>';
+          askHTML += '<div>';
+          askHTML += '<button onclick="answerFuel(\'nafta\')">Nafta</button>';
           askHTML += '<button onclick="answerFuel(\'diesel\')">Diesel</button>';
           askHTML += '</div>';
         } else if (q?.field === 'ac') {
-          askHTML += '<div style="margin-top:10px;">';
-          askHTML += '<button onclick="answerAC(false)" style="margin-right:8px;">Estándar (CU)</button>';
+          askHTML += '<div>';
+          askHTML += '<button onclick="answerAC(false)">Estándar (CU)</button>';
           askHTML += '<button onclick="answerAC(true)">Carbón activo/bio (CUK/FP)</button>';
           askHTML += '</div>';
         } else if (q?.field === 'displacement_l') {
-          askHTML += '<div style="margin-top:10px;">';
+          askHTML += '<div>';
           if (q.options && q.options.length > 0) {
             q.options.forEach(option => {
-              askHTML += `<button onclick="answerDisplacement(${option})" style="margin-right:8px; margin-bottom:4px;">${option}L</button>`;
+              askHTML += `<button onclick="answerDisplacement(${option})">${option}L</button>`;
             });
           } else {
-            askHTML += '<input id="displacementInput" type="number" step="0.1" placeholder="ej: 1.6" style="margin-right:8px;"/>';
+            askHTML += '<input id="displacementInput" type="number" step="0.1" placeholder="ej: 1.6" style="margin-right:8px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"/>';
             askHTML += '<button onclick="answerDisplacement()">Confirmar</button>';
           }
           askHTML += '</div>';
         } else if (q?.field === 'engine_series') {
-          askHTML += '<div style="margin-top:10px;">';
+          askHTML += '<div>';
           if (q.options && q.options.length > 0) {
             q.options.forEach(option => {
-              askHTML += `<button onclick="answerEngineSeries('${option}')" style="margin-right:8px; margin-bottom:4px;">${option}</button>`;
+              askHTML += `<button onclick="answerEngineSeries('${option}')">${option}</button>`;
             });
           } else {
-            askHTML += '<input id="engineSeriesInput" placeholder="ej: TBI 16V" style="margin-right:8px;"/>';
+            askHTML += '<input id="engineSeriesInput" placeholder="ej: TBI 16V" style="margin-right:8px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"/>';
             askHTML += '<button onclick="answerEngineSeries()">Confirmar</button>';
           }
           askHTML += '</div>';
@@ -303,22 +450,23 @@
       
       if (hints && Object.keys(hints).length > 0) {
         hintsDiv.style.display = 'block';
-        let hintsHTML = '<b>Filtros activos:</b><br/>';
+        let hintsHTML = '<div style="margin-bottom: 12px; font-weight: 500;">Filtros activos:</div><div>';
         
         if (hints.fuel) {
-          hintsHTML += `<span class="chip" onclick="clearHint('fuel')">fuel: ${hints.fuel}</span>`;
+          hintsHTML += `<span class="chip" onclick="clearHint('fuel')">Combustible: ${hints.fuel}</span>`;
         }
         if (hints.ac !== undefined) {
           const acLabel = hints.ac ? 'Carbón activo/bio (CUK/FP)' : 'Estándar (CU)';
-          hintsHTML += `<span class="chip" onclick="clearHint('ac')">ac: ${acLabel}</span>`;
+          hintsHTML += `<span class="chip" onclick="clearHint('ac')">Aire acondicionado: ${acLabel}</span>`;
         }
         if (hints.displacement_l) {
-          hintsHTML += `<span class="chip" onclick="clearHint('displacement_l')">displacement_l: ${hints.displacement_l}</span>`;
+          hintsHTML += `<span class="chip" onclick="clearHint('displacement_l')">Cilindrada: ${hints.displacement_l}L</span>`;
         }
         if (hints.engine_series) {
-          hintsHTML += `<span class="chip" onclick="clearHint('engine_series')">engine_series: ${hints.engine_series}</span>`;
+          hintsHTML += `<span class="chip" onclick="clearHint('engine_series')">Serie motor: ${hints.engine_series}</span>`;
         }
         
+        hintsHTML += '</div>';
         hintsDiv.innerHTML = hintsHTML;
       }
       
@@ -354,15 +502,15 @@
         const xrefId = 'xref-' + Math.random().toString(36).substr(2, 9);
         
         // Форматируем вывод с выпадающим списком
-        let html = '<br/><div style="margin-top:6px;">';
-        html += `<span class="xref-toggle" onclick="toggleXref('${xrefId}')">🔗 Ver referencias cruzadas</span>`;
+        let html = '<div style="margin-top: 8px;">';
+        html += `<span class="xref-toggle" onclick="toggleXref('${xrefId}')">Ver referencias cruzadas</span>`;
         html += `<div id="${xrefId}" class="xref-content">`;
         
         for (const producer of sortedProducers) {
           const partNums = groups.get(producer);
-          html += `<div style="margin-top:4px; margin-left:12px;">`;
-          html += `<strong style="color:#2196f3;">${producer}</strong>: `;
-          html += `<span style="color:#555;">${partNums.join(', ')}</span>`;
+          html += `<div class="xref-producer">`;
+          html += `<strong>${producer}</strong>`;
+          html += `<span>${partNums.join(', ')}</span>`;
           html += `</div>`;
         }
         
@@ -382,7 +530,7 @@
         div.className='card';
         
         if (!items || !items.length) {
-          div.innerHTML = `<h2>${title}</h2><div class="empty-section">— Sin entradas —</div>`;
+          div.innerHTML = `<h2>${title}</h2><div class="empty-section">Sin entradas</div>`;
         } else {
           div.innerHTML = `<h2>${title}</h2>` + items.map(it => {
             const srcs = (it.sources||[]).map(s=>`${s.catalog} p.${s.page}`).join(', ');
@@ -390,12 +538,12 @@
             
             // Комментарий всегда показываем
             if (it.comment) {
-              notesHtml += `<br/><small style="color:#666;">💬 ${it.comment}</small>`;
+              notesHtml += `<div class="notes"><small>${it.comment}</small></div>`;
             }
             
             // Дата показываем только если есть
             if (it.date) {
-              notesHtml += `<br/><small style="color:#666;">📅 ${it.date}</small>`;
+              notesHtml += `<div class="notes"><small>${it.date}</small></div>`;
             }
             
             // xref форматируем с группировкой по производителям
@@ -403,7 +551,11 @@
               notesHtml += formatXref(it.xref);
             }
             
-            return `<div><b>${it.brand} ${it.part_number}</b> — conf ${Math.round(it.confidence*100)}%<br/><small>${srcs}</small>${notesHtml}</div>`;
+            return `<div class="result-item">
+              <div class="part-number">${it.brand} ${it.part_number}<span class="confidence">${Math.round(it.confidence*100)}%</span></div>
+              <div class="sources">${srcs}</div>
+              ${notesHtml}
+            </div>`;
           }).join('');
         }
         out.appendChild(div);
@@ -459,6 +611,15 @@
     }
     
     document.getElementById('btn').addEventListener('click', () => run());
+    
+    // Поиск по Enter
+    ['make', 'model', 'year'].forEach(id => {
+      document.getElementById(id).addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          run();
+        }
+      });
+    });
   </script>
 </body>
 </html>
