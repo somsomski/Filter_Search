@@ -9,6 +9,9 @@ export interface LookupInput {
     ac?: boolean|null;
     displacement_l?: number|null;
     engine_series?: string|null;
+    engine_code?: string|null;
+    body?: string|null;
+    power_hp?: number|null;
   };
   lang?: 'es-AR'|'ru';
 }
@@ -28,7 +31,7 @@ export interface PartHit {
 }
 
 export interface DisambQuestion {
-  field: 'fuel'|'ac'|'displacement_l'|'engine_series';
+  field: 'fuel'|'ac'|'displacement_l'|'engine_series'|'engine_code'|'body'|'power_hp';
   options?: (string|number|boolean)[];
   reason: string;
 }

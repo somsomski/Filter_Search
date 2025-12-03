@@ -91,6 +91,114 @@ function score(row, hints, ctx, engineSeriesGroups) {
     const clamped = Math.min(Math.max(s, 0.50), 0.99);
     return clamped;
 }
+/**
+ * Вычисляет эффективность поля для дизамбигурации
+ * Возвращает максимальное количество записей, которое останется после выбора любого значения
+ * Чем меньше это число, тем эффективнее поле для дизамбигурации
+ */
+function calculateFieldEfficiency(rows, field, engineSeriesGroups) {
+    const valueCounts = new Map();
+    for (const r of rows) {
+        let value = null;
+        if (field === 'fuel') {
+            value = r.fuel;
+        }
+        else if (field === 'ac') {
+            value = r.ac;
+        }
+        else if (field === 'displacement_l') {
+            const disp = toNumberOrNull(r.displacement_l);
+            value = disp != null ? Math.round(disp * 10) / 10 : null;
+        }
+        else if (field === 'engine_series') {
+            if (r.engine_series) {
+                // Разбиваем на варианты по "|"
+                const variants = splitEngineSeriesVariants(r.engine_series);
+                for (const variant of variants) {
+                    // Используем каноническое значение если есть
+                    const canonical = engineSeriesGroups ? getCanonicalEngineSeries(variant, engineSeriesGroups) : variant;
+                    value = canonical || variant;
+                    const key = String(value);
+                    valueCounts.set(value, (valueCounts.get(value) || 0) + 1);
+                }
+                continue; // Уже обработали варианты
+            }
+        }
+        else if (field === 'engine_code') {
+            value = r.engine_code;
+        }
+        else if (field === 'body') {
+            value = r.body;
+        }
+        else if (field === 'power_hp') {
+            value = r.power_hp;
+        }
+        if (value != null) {
+            const key = String(value);
+            valueCounts.set(value, (valueCounts.get(value) || 0) + 1);
+        }
+    }
+    // Проверяем, влияет ли поле на результат (есть ли разные значения для одного фильтра)
+    let affectsResult = false;
+    if (valueCounts.size > 1) {
+        const groupsByPart = new Map();
+        for (const r of rows) {
+            const key = `${r.filter_type}::${r.brand_src}::${r.part_number}`;
+            if (!groupsByPart.has(key)) {
+                groupsByPart.set(key, new Set());
+            }
+            let value = null;
+            if (field === 'fuel') {
+                value = r.fuel;
+            }
+            else if (field === 'ac') {
+                value = r.ac;
+            }
+            else if (field === 'displacement_l') {
+                const disp = toNumberOrNull(r.displacement_l);
+                value = disp != null ? Math.round(disp * 10) / 10 : null;
+            }
+            else if (field === 'engine_series') {
+                if (r.engine_series) {
+                    const variants = splitEngineSeriesVariants(r.engine_series);
+                    for (const variant of variants) {
+                        const canonical = engineSeriesGroups ? getCanonicalEngineSeries(variant, engineSeriesGroups) : variant;
+                        value = canonical || variant;
+                        groupsByPart.get(key).add(value);
+                    }
+                    continue;
+                }
+            }
+            else if (field === 'engine_code') {
+                value = r.engine_code;
+            }
+            else if (field === 'body') {
+                value = r.body;
+            }
+            else if (field === 'power_hp') {
+                value = r.power_hp;
+            }
+            if (value != null) {
+                groupsByPart.get(key).add(value);
+            }
+        }
+        // Проверяем, есть ли группы с разными значениями
+        for (const values of groupsByPart.values()) {
+            if (values.size > 1) {
+                affectsResult = true;
+                break;
+            }
+        }
+    }
+    // Максимальное количество записей, которое останется после выбора любого значения
+    const maxRemaining = valueCounts.size > 0 ? Math.max(...Array.from(valueCounts.values())) : rows.length;
+    const options = Array.from(valueCounts.keys()).sort((a, b) => {
+        if (typeof a === 'number' && typeof b === 'number')
+            return a - b;
+        return String(a).localeCompare(String(b));
+    });
+    return { maxRemaining, options, affectsResult };
+}
 function inferDisambiguation(rows, hints, engineSeriesGroups) {
     const ask = [];
     // Применяем текущие hints для получения candidate set
@@ -103,147 +211,120 @@ function inferDisambiguation(rows, hints, engineSeriesGroups) {
         const rowDisp = toNumberOrNull(r.displacement_l);
         if (hintDisp != null && rowDisp != null && Math.abs(rowDisp - hintDisp) > 0.1)
             return false;
-        // Сравниваем engine_series с учетом эквивалентности
+        // Сравниваем engine_series с учетом эквивалентности и вариантов через "|"
         if (hints?.engine_series && r.engine_series) {
-            if (hints.engine_series === r.engine_series) {
-                // Точное совпадение
-            }
-            else if (engineSeriesGroups) {
-                // Проверяем эквивалентность
-                const rowCanonical = getCanonicalEngineSeries(r.engine_series, engineSeriesGroups);
-                const hintCanonical = getCanonicalEngineSeries(hints.engine_series, engineSeriesGroups);
-                if (rowCanonical && hintCanonical && rowCanonical === hintCanonical) {
-                    // Эквивалентные значения - пропускаем
+            const variants = splitEngineSeriesVariants(r.engine_series);
+            let matched = false;
+            for (const variant of variants) {
+                if (hints.engine_series === variant) {
+                    matched = true;
+                    break;
                 }
-                else if (areEngineSeriesEquivalent(hints.engine_series, r.engine_series)) {
-                    // Эквивалентные значения - пропускаем
-                }
-                else {
-                    return false; // Не эквивалентные - исключаем
+                else if (engineSeriesGroups) {
+                    const rowCanonical = getCanonicalEngineSeries(variant, engineSeriesGroups);
+                    const hintCanonical = getCanonicalEngineSeries(hints.engine_series, engineSeriesGroups);
+                    if (rowCanonical && hintCanonical && rowCanonical === hintCanonical) {
+                        matched = true;
+                        break;
+                    }
+                    else if (areEngineSeriesEquivalent(hints.engine_series, variant)) {
+                        matched = true;
+                        break;
+                    }
                 }
             }
-            else {
-                return false; // Нет совпадения и нет групп для проверки эквивалентности
-            }
+            if (!matched)
+                return false;
         }
+        // Проверяем другие поля
+        if (hints?.engine_code && r.engine_code && r.engine_code !== hints.engine_code)
+            return false;
+        if (hints?.body && r.body && r.body !== hints.body)
+            return false;
+        if (hints?.power_hp != null && r.power_hp != null && r.power_hp !== hints.power_hp)
+            return false;
         return true;
     });
-    const fuels = new Set(filtered.map(r => r.fuel).filter(Boolean));
-    const acs = new Set(filtered.map(r => String(r.ac)).filter(v => v !== 'null'));
-    const engineSeries = new Set(filtered.map(r => r.engine_series).filter(Boolean));
-    // Пошаговая дизамбигуация: один вопрос за раз по приоритету
-    // 1) fuel, 2) ac, 3) displacement_l, 4) engine_series
-    if (!hints?.fuel && fuels.size > 1) {
-        ask.push({ field: 'fuel', options: ['nafta', 'diesel'], reason: 'Hay variantes por combustible.' });
+    // Если нет записей после фильтрации, используем все записи
+    const working = filtered.length > 0 ? filtered : rows;
+    // Вычисляем эффективность каждого поля для дизамбигурации
+    const candidates = [];
+    // Группируем эквивалентные engine_series для анализа
+    const localEngineSeriesGroups = engineSeriesGroups || groupEquivalentEngineSeries(working);
+    if (!hints?.fuel) {
+        const eff = calculateFieldEfficiency(working, 'fuel', localEngineSeriesGroups);
+        if (eff.affectsResult && eff.options.length > 1) {
+            candidates.push({ field: 'fuel', efficiency: eff });
+        }
     }
-    else if ((hints?.fuel || fuels.size <= 1) && !hints?.ac && acs.size > 1) {
-        ask.push({ field: 'ac', options: [true, false], reason: 'Hay variantes por tipo de media de cabina.' });
+    if (typeof hints?.ac !== 'boolean') {
+        const eff = calculateFieldEfficiency(working, 'ac', localEngineSeriesGroups);
+        if (eff.affectsResult && eff.options.length > 1) {
+            candidates.push({ field: 'ac', efficiency: eff });
+        }
     }
-    else if ((hints?.fuel || fuels.size <= 1) && (hints?.ac !== undefined || acs.size <= 1) && !hints?.displacement_l && doesDisplacementAffectResult(filtered)) {
-        const dispValues = [];
-        for (const r of filtered) {
-            const n = toNumberOrNull(r.displacement_l);
-            if (n != null)
-                dispValues.push(n);
+    if (!hints?.displacement_l) {
+        const eff = calculateFieldEfficiency(working, 'displacement_l', localEngineSeriesGroups);
+        if (eff.affectsResult && eff.options.length > 1) {
+            candidates.push({ field: 'displacement_l', efficiency: eff });
         }
-        const roundedUnique = new Set(Array.from(new Set(dispValues))
-            .map(x => Math.round(x * 10) / 10)
-            .filter(x => Number.isFinite(x)));
-        const opts = Array.from(roundedUnique).sort((a, b) => a - b);
-        ask.push({ field: 'displacement_l', options: opts, reason: 'Hay variantes por cilindrada.' });
     }
-    else if ((hints?.fuel || fuels.size <= 1) && (hints?.ac !== undefined || acs.size <= 1) && (hints?.displacement_l || !doesDisplacementAffectResult(filtered)) && !hints?.engine_series && engineSeries.size > 1 && doesEngineSeriesAffectResult(filtered)) {
-        // Группируем эквивалентные engine_series
-        const engineSeriesGroups = groupEquivalentEngineSeries(filtered);
-        // Собираем канонические значения
-        const canonicalSeries = new Set();
-        const seriesByCatalog = new Map(); // catalog -> canonical -> original[]
-        for (const r of filtered) {
-            if (!r.engine_series)
-                continue;
-            const canonical = getCanonicalEngineSeries(r.engine_series, engineSeriesGroups);
-            if (!canonical)
-                continue;
-            canonicalSeries.add(canonical);
-            // Отслеживаем, какие оригинальные значения есть в каждом каталоге
-            if (!seriesByCatalog.has(r.brand_src)) {
-                seriesByCatalog.set(r.brand_src, new Map());
-            }
-            const catalogMap = seriesByCatalog.get(r.brand_src);
-            if (!catalogMap.has(canonical)) {
-                catalogMap.set(canonical, new Set());
-            }
-            catalogMap.get(canonical).add(r.engine_series);
+    if (!hints?.engine_series) {
+        const eff = calculateFieldEfficiency(working, 'engine_series', localEngineSeriesGroups);
+        if (eff.affectsResult && eff.options.length > 1) {
+            candidates.push({ field: 'engine_series', efficiency: eff });
         }
-        // Проверяем, есть ли в одном каталоге разные engine_series с похожими токенами,
-        // которые дают разные фильтры
-        const needsFullList = new Set();
-        for (const [catalog, canonicalMap] of seriesByCatalog) {
-            for (const [canonical, originals] of canonicalMap) {
-                if (originals.size > 1) {
-                    // В этом каталоге есть несколько вариантов для одного канонического значения
-                    // Проверяем, дают ли они разные фильтры
-                    const partNumbersByOriginal = new Map();
-                    for (const r of filtered) {
-                        if (r.brand_src === catalog && r.engine_series && originals.has(r.engine_series)) {
-                            if (!partNumbersByOriginal.has(r.engine_series)) {
-                                partNumbersByOriginal.set(r.engine_series, new Set());
-                            }
-                            partNumbersByOriginal.get(r.engine_series).add(`${r.filter_type}::${r.part_number}`);
-                        }
-                    }
-                    // Проверяем, дают ли разные оригинальные значения разные фильтры
-                    // Если да - нужно показывать все варианты
-                    const partNumberSets = Array.from(partNumbersByOriginal.values());
-                    let hasDifferences = false;
-                    // Сравниваем наборы фильтров для разных оригинальных значений
-                    for (let i = 0; i < partNumberSets.length; i++) {
-                        for (let j = i + 1; j < partNumberSets.length; j++) {
-                            const set1 = partNumberSets[i];
-                            const set2 = partNumberSets[j];
-                            // Если наборы различаются - есть различия в фильтрах
-                            if (set1.size !== set2.size ||
-                                ![...set1].every(pn => set2.has(pn))) {
-                                hasDifferences = true;
-                                break;
-                            }
-                        }
-                        if (hasDifferences)
-                            break;
-                    }
-                    if (hasDifferences) {
-                        // Есть различия в фильтрах - добавляем все оригинальные значения
-                        for (const original of originals) {
-                            needsFullList.add(original);
-                        }
-                    }
-                }
-            }
+    }
+    // Проверяем другие поля (только если они еще не указаны в hints)
+    if (!hints?.engine_code) {
+        const effEngineCode = calculateFieldEfficiency(working, 'engine_code', localEngineSeriesGroups);
+        if (effEngineCode.affectsResult && effEngineCode.options.length > 1) {
+            candidates.push({ field: 'engine_code', efficiency: effEngineCode });
         }
-        // Формируем список опций
-        const opts = [];
-        if (needsFullList.size > 0) {
-            // Если есть случаи, где нужно показывать все варианты - добавляем их
-            for (const series of Array.from(engineSeries).sort()) {
-                if (needsFullList.has(series)) {
-                    opts.push(series);
-                }
-                else {
-                    // Для остальных используем канонические значения
-                    const canonical = getCanonicalEngineSeries(series, engineSeriesGroups);
-                    if (canonical && !opts.includes(canonical)) {
-                        opts.push(canonical);
-                    }
-                }
-            }
+    }
+    if (!hints?.body) {
+        const effBody = calculateFieldEfficiency(working, 'body', localEngineSeriesGroups);
+        if (effBody.affectsResult && effBody.options.length > 1) {
+            candidates.push({ field: 'body', efficiency: effBody });
         }
-        else {
-            // Используем только канонические значения
-            opts.push(...Array.from(canonicalSeries).sort());
+    }
+    if (hints?.power_hp == null) {
+        const effPowerHp = calculateFieldEfficiency(working, 'power_hp', localEngineSeriesGroups);
+        if (effPowerHp.affectsResult && effPowerHp.options.length > 1) {
+            candidates.push({ field: 'power_hp', efficiency: effPowerHp });
         }
-        if (opts.length > 0) {
-            ask.push({ field: 'engine_series', options: opts, reason: 'Hay variantes por serie de motor.' });
+    }
+    // Выбираем поле с наименьшим maxRemaining (быстрее всего приведет к однозначному результату)
+    if (candidates.length > 0) {
+        candidates.sort((a, b) => a.efficiency.maxRemaining - b.efficiency.maxRemaining);
+        const best = candidates[0];
+        let reason = '';
+        if (best.field === 'fuel') {
+            reason = 'Hay variantes por combustible.';
         }
+        else if (best.field === 'ac') {
+            reason = 'Hay variantes por tipo de media de cabina.';
+        }
+        else if (best.field === 'displacement_l') {
+            reason = 'Hay variantes por cilindrada.';
+        }
+        else if (best.field === 'engine_series') {
+            reason = 'Hay variantes por serie de motor.';
+        }
+        else if (best.field === 'engine_code') {
+            reason = 'Hay variantes por código de motor.';
+        }
+        else if (best.field === 'body') {
+            reason = 'Hay variantes por tipo de carrocería.';
+        }
+        else if (best.field === 'power_hp') {
+            reason = 'Hay variantes por potencia.';
+        }
+        ask.push({
+            field: best.field,
+            options: best.efficiency.options,
+            reason
+        });
     }
     return ask;
 }
@@ -270,6 +351,17 @@ function doesDisplacementAffectResult(rows) {
     return false; // displacement_l не влияет на результат
 }
 /**
+ * Разбивает engine_series на варианты по разделителю "|"
+ * Примеры:
+ * - "A|B" -> ["A", "B"]
+ * - "TBI 16V" -> ["TBI 16V"]
+ */
+function splitEngineSeriesVariants(engineSeries) {
+    if (!engineSeries)
+        return [];
+    return engineSeries.split('|').map(s => s.trim()).filter(s => s.length > 0);
+}
+/**
  * Токенизирует engine_series, извлекая ключевые токены
  * Примеры:
  * - "16V K4M-706" -> ["16V", "K4M", "706"]
@@ -289,61 +381,73 @@ function tokenizeEngineSeries(engineSeries) {
 /**
  * Определяет, относятся ли два engine_series к одному двигателю
  * Сравнивает по ключевым токенам
+ * Учитывает варианты через разделитель "|"
  */
 function areEngineSeriesEquivalent(series1, series2) {
     if (!series1 || !series2)
         return false;
     if (series1 === series2)
         return true;
-    const tokens1 = new Set(tokenizeEngineSeries(series1));
-    const tokens2 = new Set(tokenizeEngineSeries(series2));
-    // Если один набор токенов полностью содержится в другом - это один двигатель
-    // Например: ["K4M"] содержится в ["16V", "K4M", "706"]
-    if (tokens1.size === 0 || tokens2.size === 0)
-        return false;
-    // Проверяем пересечение токенов
-    const intersection = new Set([...tokens1].filter(t => tokens2.has(t)));
-    // Если есть общие токены и один из наборов полностью содержится в другом
-    if (intersection.size > 0) {
-        // Если все токены одного набора есть в другом - это один двигатель
-        const allTokens1In2 = [...tokens1].every(t => tokens2.has(t));
-        const allTokens2In1 = [...tokens2].every(t => tokens1.has(t));
-        if (allTokens1In2 || allTokens2In1) {
-            return true;
-        }
-        // Разделяем токены на буквенные (идентификаторы) и числовые (суффиксы)
-        const isNumeric = (s) => /^\d+$/.test(s);
-        const alphaTokens1 = [...tokens1].filter(t => !isNumeric(t) && t.length >= 2);
-        const alphaTokens2 = [...tokens2].filter(t => !isNumeric(t) && t.length >= 2);
-        const numericTokens1 = [...tokens1].filter(isNumeric);
-        const numericTokens2 = [...tokens2].filter(isNumeric);
-        // Если все буквенные токены совпадают - проверяем числовые
-        // Например: "K4M" и "16V K4M-706" - эквивалентны (все буквенные токены "K4M" есть в обоих, числовые не важны)
-        // Но "K4M-706" и "K4M-707" - НЕ эквивалентны (разные числовые суффиксы)
-        if (alphaTokens1.length > 0 && alphaTokens2.length > 0) {
-            const alphaSet1 = new Set(alphaTokens1);
-            const alphaSet2 = new Set(alphaTokens2);
-            // Если все буквенные токены одного набора есть в другом
-            const allAlpha1In2 = alphaTokens1.every(t => alphaSet2.has(t));
-            const allAlpha2In1 = alphaTokens2.every(t => alphaSet1.has(t));
-            if (allAlpha1In2 || allAlpha2In1) {
-                // Если у обоих есть числовые токены - они должны совпадать
-                // Если у одного есть числовые, а у другого нет - это нормально (один более детальный)
-                if (numericTokens1.length > 0 && numericTokens2.length > 0) {
-                    // Оба имеют числовые токены - они должны совпадать
-                    const numericSet1 = new Set(numericTokens1);
-                    const numericSet2 = new Set(numericTokens2);
-                    const allNumeric1In2 = numericTokens1.every(t => numericSet2.has(t));
-                    const allNumeric2In1 = numericTokens2.every(t => numericSet1.has(t));
-                    if (allNumeric1In2 || allNumeric2In1) {
-                        return true;
-                    }
-                    // Если числовые токены не совпадают - это разные двигатели
-                    return false;
-                }
-                else {
-                    // У одного есть числовые, у другого нет - это один двигатель (один более детальный)
+    // Разбиваем на варианты по "|"
+    const variants1 = splitEngineSeriesVariants(series1);
+    const variants2 = splitEngineSeriesVariants(series2);
+    // Проверяем, есть ли пересечение вариантов
+    for (const v1 of variants1) {
+        for (const v2 of variants2) {
+            if (v1 === v2)
+                return true;
+            // Проверяем эквивалентность через токены
+            const tokens1 = new Set(tokenizeEngineSeries(v1));
+            const tokens2 = new Set(tokenizeEngineSeries(v2));
+            // Если один набор токенов полностью содержится в другом - это один двигатель
+            // Например: ["K4M"] содержится в ["16V", "K4M", "706"]
+            if (tokens1.size === 0 || tokens2.size === 0)
+                return false;
+            // Проверяем пересечение токенов
+            const intersection = new Set([...tokens1].filter(t => tokens2.has(t)));
+            // Если есть общие токены и один из наборов полностью содержится в другом
+            if (intersection.size > 0) {
+                // Если все токены одного набора есть в другом - это один двигатель
+                const allTokens1In2 = [...tokens1].every(t => tokens2.has(t));
+                const allTokens2In1 = [...tokens2].every(t => tokens1.has(t));
+                if (allTokens1In2 || allTokens2In1) {
                     return true;
+                }
+                // Разделяем токены на буквенные (идентификаторы) и числовые (суффиксы)
+                const isNumeric = (s) => /^\d+$/.test(s);
+                const alphaTokens1 = [...tokens1].filter(t => !isNumeric(t) && t.length >= 2);
+                const alphaTokens2 = [...tokens2].filter(t => !isNumeric(t) && t.length >= 2);
+                const numericTokens1 = [...tokens1].filter(isNumeric);
+                const numericTokens2 = [...tokens2].filter(isNumeric);
+                // Если все буквенные токены совпадают - проверяем числовые
+                // Например: "K4M" и "16V K4M-706" - эквивалентны (все буквенные токены "K4M" есть в обоих, числовые не важны)
+                // Но "K4M-706" и "K4M-707" - НЕ эквивалентны (разные числовые суффиксы)
+                if (alphaTokens1.length > 0 && alphaTokens2.length > 0) {
+                    const alphaSet1 = new Set(alphaTokens1);
+                    const alphaSet2 = new Set(alphaTokens2);
+                    // Если все буквенные токены одного набора есть в другом
+                    const allAlpha1In2 = alphaTokens1.every(t => alphaSet2.has(t));
+                    const allAlpha2In1 = alphaTokens2.every(t => alphaSet1.has(t));
+                    if (allAlpha1In2 || allAlpha2In1) {
+                        // Если у обоих есть числовые токены - они должны совпадать
+                        // Если у одного есть числовые, а у другого нет - это нормально (один более детальный)
+                        if (numericTokens1.length > 0 && numericTokens2.length > 0) {
+                            // Оба имеют числовые токены - они должны совпадать
+                            const numericSet1 = new Set(numericTokens1);
+                            const numericSet2 = new Set(numericTokens2);
+                            const allNumeric1In2 = numericTokens1.every(t => numericSet2.has(t));
+                            const allNumeric2In1 = numericTokens2.every(t => numericSet1.has(t));
+                            if (allNumeric1In2 || allNumeric2In1) {
+                                return true;
+                            }
+                            // Если числовые токены не совпадают - это разные двигатели
+                            // Продолжаем проверку других вариантов
+                        }
+                        else {
+                            // У одного есть числовые, у другого нет - это один двигатель (один более детальный)
+                            return true;
+                        }
+                    }
                 }
             }
         }
@@ -357,11 +461,14 @@ function areEngineSeriesEquivalent(series1, series2) {
 function groupEquivalentEngineSeries(rows) {
     const groups = new Map();
     const processed = new Set();
-    // Собираем все уникальные engine_series
+    // Собираем все уникальные engine_series (включая варианты через "|")
     const allSeries = new Set();
     for (const r of rows) {
         if (r.engine_series) {
-            allSeries.add(r.engine_series);
+            const variants = splitEngineSeriesVariants(r.engine_series);
+            for (const variant of variants) {
+                allSeries.add(variant);
+            }
         }
     }
     // Группируем эквивалентные
@@ -406,15 +513,19 @@ function doesEngineSeriesAffectResult(rows) {
     for (const r of rows) {
         if (!r.engine_series)
             continue; // Исключаем NULL значения
-        // Используем канонический engine_series
-        const canonical = getCanonicalEngineSeries(r.engine_series, engineSeriesGroups);
-        if (!canonical)
-            continue;
-        const key = `${r.filter_type}::${r.brand_src}::${r.part_number}`;
-        if (!groups.has(key)) {
-            groups.set(key, new Set());
+        // Разбиваем на варианты по "|" и обрабатываем каждый
+        const variants = splitEngineSeriesVariants(r.engine_series);
+        for (const variant of variants) {
+            // Используем канонический engine_series
+            const canonical = getCanonicalEngineSeries(variant, engineSeriesGroups);
+            if (!canonical)
+                continue;
+            const key = `${r.filter_type}::${r.brand_src}::${r.part_number}`;
+            if (!groups.has(key)) {
+                groups.set(key, new Set());
+            }
+            groups.get(key).add(canonical);
         }
-        groups.get(key).add(canonical);
     }
     // Проверяем, есть ли группы с разными значениями engine_series
     // Это означает, что engine_series влияет на результат
@@ -440,8 +551,10 @@ export async function lookup(input) {
     FROM catalog_hit
     WHERE LOWER(make) = LOWER($1)
       AND LOWER(model) = LOWER($2)
-      AND $3 >= year_from
-      AND (year_to IS NULL OR $3 <= year_to)
+      AND (
+        year_from IS NULL
+        OR ($3 >= year_from AND (year_to IS NULL OR $3 <= year_to))
+      )
     `, [make, model, year]);
     const rows = result.rows;
     if (rows.length === 0) {
@@ -470,25 +583,30 @@ export async function lookup(input) {
         const rowDisp = toNumberOrNull(r.displacement_l);
         if (hintDisp != null && rowDisp != null && Math.abs(rowDisp - hintDisp) > 0.1)
             return false;
-        // Сравниваем engine_series с учетом эквивалентности
+        // Сравниваем engine_series с учетом эквивалентности и вариантов через "|"
         if (hints.engine_series && r.engine_series) {
-            if (hints.engine_series === r.engine_series) {
-                // Точное совпадение
-            }
-            else {
-                // Проверяем эквивалентность
-                const rowCanonical = getCanonicalEngineSeries(r.engine_series, engineSeriesGroups);
-                const hintCanonical = getCanonicalEngineSeries(hints.engine_series, engineSeriesGroups);
-                if (rowCanonical && hintCanonical && rowCanonical === hintCanonical) {
-                    // Эквивалентные значения - пропускаем
-                }
-                else if (areEngineSeriesEquivalent(hints.engine_series, r.engine_series)) {
-                    // Эквивалентные значения - пропускаем
+            const variants = splitEngineSeriesVariants(r.engine_series);
+            let matched = false;
+            for (const variant of variants) {
+                if (hints.engine_series === variant) {
+                    matched = true;
+                    break;
                 }
                 else {
-                    return false; // Не эквивалентные - исключаем
+                    const rowCanonical = getCanonicalEngineSeries(variant, engineSeriesGroups);
+                    const hintCanonical = getCanonicalEngineSeries(hints.engine_series, engineSeriesGroups);
+                    if (rowCanonical && hintCanonical && rowCanonical === hintCanonical) {
+                        matched = true;
+                        break;
+                    }
+                    else if (areEngineSeriesEquivalent(hints.engine_series, variant)) {
+                        matched = true;
+                        break;
+                    }
                 }
             }
+            if (!matched)
+                return false;
         }
         return true;
     });
@@ -646,12 +764,18 @@ export async function lookup(input) {
                         ask[0]?.field === 'ac' ? '¿Filtro de cabina: estándar (CU) o carbón activo/bio (CUK/FP)?' :
                             ask[0]?.field === 'displacement_l' ? 'Decime la cilindrada (ej: 1.6).' :
                                 ask[0]?.field === 'engine_series' ? '¿Serie del motor? (ej.: TBI 16V)' :
-                                    'Falta un dato',
+                                    ask[0]?.field === 'engine_code' ? '¿Código del motor?' :
+                                        ask[0]?.field === 'body' ? '¿Tipo de carrocería?' :
+                                            ask[0]?.field === 'power_hp' ? '¿Potencia (HP)?' :
+                                                'Falta un dato',
                     'ru': ask[0]?.field === 'fuel' ? 'Nafta или diesel?' :
                         ask[0]?.field === 'ac' ? 'Салонный фильтр: стандарт (CU) или уголь/био (CUK/FP)?' :
                             ask[0]?.field === 'displacement_l' ? 'Уточни объем двигателя (например, 1.6).' :
                                 ask[0]?.field === 'engine_series' ? 'Серия двигателя? (например, TBI 16V)' :
-                                    'Нужен уточняющий пункт'
+                                    ask[0]?.field === 'engine_code' ? 'Код двигателя?' :
+                                        ask[0]?.field === 'body' ? 'Тип кузова?' :
+                                            ask[0]?.field === 'power_hp' ? 'Мощность (л.с.)?' :
+                                                'Нужен уточняющий пункт'
                 }
             }
             : { needed: false, ask: [] },

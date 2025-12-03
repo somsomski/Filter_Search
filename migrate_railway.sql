@@ -21,3 +21,7 @@ WHERE table_name = 'catalog_hit'
 ORDER BY column_name;
 
 
+
+
+
+
