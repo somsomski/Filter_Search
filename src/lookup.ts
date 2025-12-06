@@ -221,10 +221,13 @@ function calculateFieldEfficiency(
         value = r.series_suffix;
       } else if (r.engine_series) {
         const suffixes = extractSeriesSuffix(r.engine_series);
-        for (const suffix of suffixes) {
-          valueCounts.set(suffix, (valueCounts.get(suffix) || 0) + 1);
+        if (suffixes.length > 0) {
+          for (const suffix of suffixes) {
+            valueCounts.set(suffix, (valueCounts.get(suffix) || 0) + 1);
+          }
+          continue; // Уже обработали суффиксы
         }
-        continue; // Уже обработали суффиксы
+        // Если суффиксы не извлечены, value остается null
       }
     } else if (field === 'platform') {
       value = r.platform;
@@ -277,10 +280,13 @@ function calculateFieldEfficiency(
           value = r.series_suffix;
         } else if (r.engine_series) {
           const suffixes = extractSeriesSuffix(r.engine_series);
-          for (const suffix of suffixes) {
-            groupsByPart.get(key)!.add(suffix);
+          if (suffixes.length > 0) {
+            for (const suffix of suffixes) {
+              groupsByPart.get(key)!.add(suffix);
+            }
+            continue;
           }
-          continue;
+          // Если суффиксы не извлечены, value остается null
         }
       } else if (field === 'platform') {
         value = r.platform;
