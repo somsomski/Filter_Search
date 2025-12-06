@@ -648,6 +648,42 @@
             askHTML += '<button onclick="answerBody()">Confirmar</button>';
           }
           askHTML += '</div>';
+        } else if (q?.field === 'series_suffix') {
+          askHTML += '<div>';
+          if (q.options && q.options.length > 0) {
+            q.options.forEach(option => {
+              const escapedOption = String(option).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+              askHTML += `<button onclick="answerSeriesSuffix('${escapedOption}')">${String(option)}</button>`;
+            });
+          } else {
+            askHTML += '<input id="seriesSuffixInput" placeholder="ej: A" style="margin-right:8px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"/>';
+            askHTML += '<button onclick="answerSeriesSuffix()">Confirmar</button>';
+          }
+          askHTML += '</div>';
+        } else if (q?.field === 'generation') {
+          askHTML += '<div>';
+          if (q.options && q.options.length > 0) {
+            q.options.forEach(option => {
+              const escapedOption = String(option).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+              askHTML += `<button onclick="answerGeneration('${escapedOption}')">${String(option)}</button>`;
+            });
+          } else {
+            askHTML += '<input id="generationInput" placeholder="ej: 1" style="margin-right:8px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"/>';
+            askHTML += '<button onclick="answerGeneration()">Confirmar</button>';
+          }
+          askHTML += '</div>';
+        } else if (q?.field === 'platform') {
+          askHTML += '<div>';
+          if (q.options && q.options.length > 0) {
+            q.options.forEach(option => {
+              const escapedOption = String(option).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+              askHTML += `<button onclick="answerPlatform('${escapedOption}')">${String(option)}</button>`;
+            });
+          } else {
+            askHTML += '<input id="platformInput" placeholder="ej: B0" style="margin-right:8px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"/>';
+            askHTML += '<button onclick="answerPlatform()">Confirmar</button>';
+          }
+          askHTML += '</div>';
         }
         
         ask.innerHTML = askHTML;
@@ -683,6 +719,15 @@
         }
         if (hints.body) {
           hintsHTML += `<span class="chip" onclick="clearHint('body')">Carrocería: ${hints.body}</span>`;
+        }
+        if (hints.series_suffix) {
+          hintsHTML += `<span class="chip" onclick="clearHint('series_suffix')">Sufijo de serie: ${hints.series_suffix}</span>`;
+        }
+        if (hints.generation) {
+          hintsHTML += `<span class="chip" onclick="clearHint('generation')">Generación: ${hints.generation}</span>`;
+        }
+        if (hints.platform) {
+          hintsHTML += `<span class="chip" onclick="clearHint('platform')">Plataforma: ${hints.platform}</span>`;
         }
         
         hintsHTML += '</div>';
@@ -852,6 +897,39 @@
         const inputBody = $('#bodyInput').value.trim();
         if (inputBody) {
           run({ ...currentQuery.hints, body: inputBody });
+        }
+      }
+    }
+    
+    function answerSeriesSuffix(seriesSuffix) {
+      if (seriesSuffix) {
+        run({ ...currentQuery.hints, series_suffix: seriesSuffix });
+      } else {
+        const inputSeriesSuffix = $('#seriesSuffixInput').value.trim();
+        if (inputSeriesSuffix) {
+          run({ ...currentQuery.hints, series_suffix: inputSeriesSuffix });
+        }
+      }
+    }
+    
+    function answerGeneration(generation) {
+      if (generation) {
+        run({ ...currentQuery.hints, generation: generation });
+      } else {
+        const inputGeneration = $('#generationInput').value.trim();
+        if (inputGeneration) {
+          run({ ...currentQuery.hints, generation: inputGeneration });
+        }
+      }
+    }
+    
+    function answerPlatform(platform) {
+      if (platform) {
+        run({ ...currentQuery.hints, platform: platform });
+      } else {
+        const inputPlatform = $('#platformInput').value.trim();
+        if (inputPlatform) {
+          run({ ...currentQuery.hints, platform: inputPlatform });
         }
       }
     }
